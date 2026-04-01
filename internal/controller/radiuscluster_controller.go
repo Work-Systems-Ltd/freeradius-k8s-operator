@@ -28,13 +28,6 @@ import (
 	"github.com/example/freeradius-operator/internal/status"
 )
 
-const (
-	configMapSuffix  = "-freeradius-config"
-	deploymentSuffix = "-freeradius"
-	serviceSuffix    = "-freeradius"
-	hpaSuffix        = "-freeradius"
-)
-
 type RadiusClusterReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme

@@ -10,14 +10,6 @@ import (
 	"github.com/example/freeradius-operator/api/v1alpha1"
 )
 
-const (
-	ConditionAvailable   = "Available"
-	ConditionProgressing = "Progressing"
-	ConditionDegraded    = "Degraded"
-	ConditionReady       = "Ready"
-	ConditionInvalid     = "Invalid"
-)
-
 type StatusReporter struct {
 	client client.Client
 }
