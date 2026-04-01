@@ -18,6 +18,9 @@
 
 ---
 
+> [!WARNING]
+> This project is under active development and is not yet ready for production use. APIs, CRD schemas, and behaviors may change without notice.
+
 A Kubernetes operator for managing FreeRADIUS deployments, clients, and policies via custom resources.
 
 Define your RADIUS infrastructure declaratively with three CRDs — `RadiusCluster`, `RadiusClient`, and `RadiusPolicy` — and let the operator handle configuration rendering, secret mounting, deployments, and rolling updates.
