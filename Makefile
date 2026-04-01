@@ -7,7 +7,9 @@ GOFLAGS ?=
 GOARCH  ?= $(shell go env GOARCH)
 GOOS    ?= $(shell go env GOOS)
 
-.PHONY: generate manifests build test dev-up dev-down load-image dev-run
+GOLANGCI_LINT ?= $(shell which golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+
+.PHONY: generate manifests build test lint dev-up dev-down load-image dev-run
 
 ## generate: Run controller-gen to generate DeepCopy methods and other code.
 generate:
@@ -24,6 +26,13 @@ build:
 ## test: Run all unit and property-based tests.
 test:
 	go test ./... -count=1
+
+## lint: Run golangci-lint.
+lint: $(GOLANGCI_LINT)
+	$(GOLANGCI_LINT) run ./...
+
+$(GOLANGCI_LINT):
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
 
 ## dev-up: Start the local kind-in-Docker-Compose development environment.
 dev-up:
