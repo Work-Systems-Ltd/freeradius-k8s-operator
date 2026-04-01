@@ -1,15 +1,7 @@
 <p align="center">
-  <img src="media/logo.png" alt="FreeRADIUS K8s Operator" width="300">
-</p>
-
-<h1 align="center">FreeRADIUS K8s Operator</h1>
-
-<p align="center">
+  <img src="media/logo.png" alt="FreeRADIUS K8s Operator" width="300"><br>
   <strong>Declarative RADIUS infrastructure on Kubernetes.</strong><br>
-  Define clusters, clients, and policies as native custom resources — the operator handles the rest.
-</p>
-
-<p align="center">
+  Define clusters, clients, and policies as native custom resources — the operator handles the rest.<br><br>
   <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white" alt="Go"></a>
   <a href="https://kubernetes.io"><img src="https://img.shields.io/badge/Kubernetes-1.28+-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
