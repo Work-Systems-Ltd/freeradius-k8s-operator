@@ -1,0 +1,48 @@
+// Work Systems brand color scheme for just-the-docs
+// Matches https://worksystems.co.nz/ visual identity
+
+// Brand palette
+$ws-orange:       #FF6A3A;
+$ws-orange-light: #FF8A60;
+$ws-black:        #111111;
+$ws-dark:         #171717;
+$ws-dark-2:       #1E1E1E;
+$ws-dark-3:       #252525;
+$ws-gray:         #999999;
+$ws-gray-light:   #CCCCCC;
+$ws-white:        #FFFFFF;
+$ws-off-white:    #F8F8F8;
+
+// Core theme colors
+$body-background-color:       $ws-black;
+$sidebar-color:               $ws-dark;
+$body-text-color:             $ws-off-white;
+$body-heading-color:          $ws-white;
+$nav-child-link-color:        $ws-gray;
+$search-result-preview-color: $ws-gray;
+
+// Links
+$link-color:                  $ws-orange;
+$link-hover-color:            $ws-orange-light;
+
+// Buttons
+$btn-primary-color:           $ws-orange;
+
+// Code
+$code-background-color:       $ws-dark-2;
+$code-linenumber-color:       $ws-gray;
+
+// Borders & feedback
+$border-color:                $ws-dark-3;
+$feedback-color:              darken($ws-orange, 5%);
+
+// Search
+$search-background-color:     $ws-dark-2;
+$search-result-highlight-color: $ws-orange;
+
+// Tables
+$table-background-color:      $ws-dark;
+
+// Navigation
+$nav-link-color:              $ws-gray-light;
+$nav-link-active-color:       $ws-orange;
