@@ -127,9 +127,17 @@ The operator reconciles the resources, renders the FreeRADIUS configuration, and
 
 ---
 
+## New to RADIUS?
+
+If you're a Kubernetes engineer who hasn't worked with RADIUS before, start with the [Concepts](/freeradius-k8s-operator/concepts/) page. It explains the AAA model, how RADIUS processing stages work, and maps every RADIUS concept to its Kubernetes equivalent.
+
 ## Project Status
 
 This project is in **alpha** (`v1alpha1`). The API surface is stabilizing but may change between releases. It is suitable for development, testing, and non-critical deployments.
 
 {: .warning }
 > CRD schemas may change in future versions. Always review release notes before upgrading.
+
+## Contributing
+
+Contributions are welcome! See the [Development](/freeradius-k8s-operator/development/) page and [CONTRIBUTING.md](https://github.com/tbotnz/freeradius-k8s-operator/blob/master/CONTRIBUTING.md) for guidelines.

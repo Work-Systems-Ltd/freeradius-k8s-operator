@@ -35,5 +35,12 @@ callouts:
 
 plugins:
   - jekyll-seo-tag
+  - jekyll-sitemap
+
+exclude:
+  - Gemfile
+  - Gemfile.lock
+  - node_modules
+  - vendor
 
 ga_tracking:

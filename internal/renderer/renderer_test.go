@@ -204,20 +204,15 @@ func TestAllClientsInConfig(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		// Collect all client content from shard files
-		var allShardContent string
-		for k, v := range files {
-			if strings.HasPrefix(k, "clients_") && strings.HasSuffix(k, ".conf") {
-				allShardContent += v
-			}
-		}
+		clientsConf := files["clients.conf"]
 		for _, c := range clients {
-			if !strings.Contains(allShardContent, "client "+c.Name+" {") {
-				t.Fatalf("client %q not found in shard files", c.Name)
+			if !strings.Contains(clientsConf, "client "+c.Name+" {") {
+				t.Fatalf("client %q not found in clients.conf", c.Name)
 			}
 		}
-		if count := strings.Count(allShardContent, "client "); count != nClients {
-			t.Fatalf("expected %d client blocks in shards, got %d", nClients, count)
+		// +2 for localhost + localhost_v6
+		if count := strings.Count(clientsConf, "client "); count != nClients+2 {
+			t.Fatalf("expected %d client blocks, got %d", nClients+2, count)
 		}
 	})
 }

@@ -183,7 +183,9 @@ Any subsequent change to any of the three CRDs triggers this reconciliation loop
 
 ## Next Steps
 
+- [Concepts](/freeradius-k8s-operator/concepts/) — RADIUS fundamentals for Kubernetes engineers (and vice versa)
 - [Architecture](/freeradius-k8s-operator/architecture/) — Understand how the operator is structured
 - [CRD Reference](/freeradius-k8s-operator/reference/radiuscluster/) — Full specification for all custom resources
 - [Modules Guide](/freeradius-k8s-operator/guides/modules/) — Configure SQL, LDAP, EAP, REST, and Redis backends
+- [Examples](/freeradius-k8s-operator/examples/) — Complete deployment scenarios (campus WiFi, ISP, VPN)
 - [Development](/freeradius-k8s-operator/development/) — Build, test, and contribute to the project

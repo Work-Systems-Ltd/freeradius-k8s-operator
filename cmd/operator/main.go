@@ -102,9 +102,15 @@ func runOperator(metricsAddr, probeAddr, watchNamespace string) {
 	statusReporter := status.New(mgr.GetClient())
 	configRenderer := renderer.New()
 
+	operatorImage := os.Getenv("OPERATOR_IMAGE")
+	if operatorImage == "" {
+		operatorImage = "freeradius-operator:latest"
+	}
+
 	if err := (&controller.RadiusClusterReconciler{
 		Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
 		Renderer: configRenderer, Status: statusReporter,
+		OperatorImage: operatorImage,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RadiusCluster")
 		os.Exit(1)

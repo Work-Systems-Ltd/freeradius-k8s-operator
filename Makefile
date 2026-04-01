@@ -1,56 +1,59 @@
-BINARY_NAME ?= freeradius-operator
-IMAGE_NAME  ?= freeradius-operator:dev
+BINARY_NAME  ?= freeradius-operator
+IMAGE_NAME   ?= freeradius-operator:dev
 KIND_CLUSTER ?= freeradius-dev
 
-# Go build settings
 GOFLAGS ?=
 GOARCH  ?= $(shell go env GOARCH)
 GOOS    ?= $(shell go env GOOS)
+GOPATH_BIN ?= $(shell go env GOPATH)/bin
 
-GOLANGCI_LINT ?= $(shell which golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
+GOLANGCI_LINT_VERSION ?= v1.64.8
+GOLANGCI_LINT         ?= $(GOPATH_BIN)/golangci-lint
 
-.PHONY: generate manifests build test lint setup-hooks dev-up dev-down load-image dev-run
+.PHONY: all generate manifests build test test-e2e fmt lint setup-hooks dev-up dev-down load-image dev-run
 
-## generate: Run controller-gen to generate DeepCopy methods and other code.
+all: fmt lint test build
+
 generate:
 	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-## manifests: Generate CRD and RBAC manifests.
 manifests:
-	controller-gen crd rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd output:rbac:artifacts:config=config/rbac
+	controller-gen crd rbac:roleName=manager-role paths="./..." \
+		output:crd:artifacts:config=config/crd \
+		output:rbac:artifacts:config=config/rbac
 
-## build: Compile the operator binary.
 build:
 	CGO_ENABLED=0 GOOS=$(GOOS) GOARCH=$(GOARCH) go build $(GOFLAGS) -o bin/$(BINARY_NAME) ./cmd/operator/...
 
-## test: Run all unit and property-based tests.
 test:
-	go test ./... -count=1
+	go test $(shell go list ./... | grep -v /e2e) -count=1
 
-## lint: Run golangci-lint.
+test-e2e:
+	go test ./e2e/... -count=1
+
+fmt:
+	gofmt -w $(shell find . -name '*.go' -not -path './vendor/*' -not -path '*/zz_generated*')
+	$(GOPATH_BIN)/goimports -w -local github.com/example/freeradius-operator \
+		$(shell find . -name '*.go' -not -path './vendor/*' -not -path '*/zz_generated*')
+
 lint: $(GOLANGCI_LINT)
 	$(GOLANGCI_LINT) run ./...
 
 $(GOLANGCI_LINT):
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)
 
-## setup-hooks: Configure git to use the project's pre-commit hook.
 setup-hooks:
 	git config core.hooksPath .githooks
 
-## dev-up: Start the local kind-in-Docker-Compose development environment.
 dev-up:
 	docker compose up -d
 
-## dev-down: Tear down the local development environment and remove volumes.
 dev-down:
 	docker compose down -v
 
-## load-image: Build and load the operator image into the kind cluster.
 load-image: build
 	docker build -t $(IMAGE_NAME) .
 	kind load docker-image $(IMAGE_NAME) --name $(KIND_CLUSTER)
 
-## dev-run: Run the operator locally against the kind cluster.
 dev-run:
 	KUBECONFIG=./dev/kubeconfig go run ./cmd/operator/...

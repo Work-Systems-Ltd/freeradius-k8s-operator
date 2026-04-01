@@ -785,6 +785,9 @@ func (r *RadiusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
 		Owns(&policyv1.PodDisruptionBudget{}).
+		Owns(&corev1.ServiceAccount{}).
+		Owns(&rbacv1.Role{}).
+		Owns(&rbacv1.RoleBinding{}).
 		Watches(&radiusv1alpha1.RadiusClient{}, handler.EnqueueRequestsFromMapFunc(enqueueOwningCluster)).
 		Watches(&radiusv1alpha1.RadiusPolicy{}, handler.EnqueueRequestsFromMapFunc(enqueueOwningCluster)).
 		Complete(r)

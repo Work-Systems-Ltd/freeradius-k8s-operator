@@ -3,26 +3,22 @@ set -euo pipefail
 
 GOPATH_BIN="$(go env GOPATH)/bin"
 GOLANGCI_LINT="${GOLANGCI_LINT:-${GOPATH_BIN}/golangci-lint}"
-GOIMPORTS="${GOPATH_BIN}/goimports"
 
 if [ ! -x "$GOLANGCI_LINT" ]; then
-    echo "golangci-lint not found, installing..."
-    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+    echo "golangci-lint not found — run 'make lint' to install it"
+    exit 1
 fi
 
-if [ ! -x "$GOIMPORTS" ]; then
-    echo "goimports not found, installing..."
-    go install golang.org/x/tools/cmd/goimports@latest
+# Only format and lint staged Go files
+STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
+if [ -z "$STAGED" ]; then
+    exit 0
 fi
 
-GO_FILES=$(find . -name '*.go' -not -path './vendor/*' -not -path '*/zz_generated*')
-
-echo "Formatting Go files..."
-gofmt -w $GO_FILES
-"$GOIMPORTS" -w -local github.com/example/freeradius-operator $GO_FILES
-
-# Re-stage any files that were reformatted
-git diff --name-only | grep '\.go$' | xargs -r git add || true
+echo "Formatting staged Go files..."
+echo "$STAGED" | xargs gofmt -w
+echo "$STAGED" | xargs "$GOPATH_BIN/goimports" -w -local github.com/example/freeradius-operator 2>/dev/null || true
+echo "$STAGED" | xargs git add
 
 echo "Running golangci-lint..."
 "$GOLANGCI_LINT" run ./...

@@ -41,3 +41,9 @@ test/
 docker-compose-dev.yml
 .claude
 .tox
+
+# Jekyll (GitHub Pages)
+docs/_site/
+docs/.jekyll-cache/
+docs/.jekyll-metadata
+docs/Gemfile.lock
