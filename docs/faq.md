@@ -1,16 +1,4 @@
----
-title: FAQ
-nav_order: 9
----
-
 # Frequently Asked Questions
-{: .no_toc }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -33,7 +21,7 @@ Yes. Each `RadiusCluster` creates its own independent Deployment, Service, Confi
 
 ### Can a RadiusClient or RadiusPolicy reference a cluster in a different namespace?
 
-No. The `clusterRef` is resolved within the same namespace. For multi-tenant deployments, use separate namespaces with their own `RadiusCluster` instances. See the [Multi-Tenant Isolation example](/freeradius-k8s-operator/examples/#multi-tenant-isolation).
+No. The `clusterRef` is resolved within the same namespace. For multi-tenant deployments, use separate namespaces with their own `RadiusCluster` instances. See the [Multi-Tenant Isolation example](examples/#multi-tenant-isolation).
 
 ### Is this production-ready?
 

@@ -1,20 +1,6 @@
----
-title: RadiusPolicy
-parent: CRD Reference
-nav_order: 3
----
-
 # RadiusPolicy
-{: .no_toc }
 
 Defines authentication and authorization logic as declarative rules.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -106,8 +92,8 @@ priority: 100
 |:-----|:--------|
 | int32 | — |
 
-{: .tip }
-> Use gaps in priority values (100, 200, 300) to leave room for inserting policies later without renumbering.
+!!! tip
+    Use gaps in priority values (100, 200, 300) to leave room for inserting policies later without renumbering.
 
 ### `match`
 

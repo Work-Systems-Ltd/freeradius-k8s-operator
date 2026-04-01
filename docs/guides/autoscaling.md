@@ -1,20 +1,6 @@
----
-title: Autoscaling
-parent: Guides
-nav_order: 2
----
-
 # Autoscaling
-{: .no_toc }
 
 Scale FreeRADIUS pods automatically based on CPU utilization.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -57,8 +43,8 @@ spec:
     targetCPUUtilizationPercentage: 70
 ```
 
-{: .note }
-> When autoscaling is enabled, the `spec.replicas` field is ignored. The HPA controls the replica count between `minReplicas` and `maxReplicas`.
+!!! note
+    When autoscaling is enabled, the `spec.replicas` field is ignored. The HPA controls the replica count between `minReplicas` and `maxReplicas`.
 
 ## Configuration
 

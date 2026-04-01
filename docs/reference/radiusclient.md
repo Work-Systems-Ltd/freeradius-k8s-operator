@@ -1,20 +1,6 @@
----
-title: RadiusClient
-parent: CRD Reference
-nav_order: 2
----
-
 # RadiusClient
-{: .no_toc }
 
 Defines a network device authorized to send RADIUS requests.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -95,8 +81,8 @@ secretRef:
 | `name` | string | Name of the Kubernetes Secret |
 | `key` | string | Key within the Secret's data |
 
-{: .warning }
-> The shared secret value is **never** written into the ConfigMap. It is mounted as a read-only file and referenced via `${file:...}` in the rendered configuration.
+!!! warning
+    The shared secret value is **never** written into the ConfigMap. It is mounted as a read-only file and referenced via `${file:...}` in the rendered configuration.
 
 ### `nasType`
 

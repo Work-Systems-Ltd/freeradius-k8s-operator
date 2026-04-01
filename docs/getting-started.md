@@ -1,19 +1,6 @@
----
-title: Getting Started
-nav_order: 2
----
-
 # Getting Started
-{: .no_toc }
 
 Get FreeRADIUS running on your Kubernetes cluster in under five minutes.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -183,9 +170,9 @@ Any subsequent change to any of the three CRDs triggers this reconciliation loop
 
 ## Next Steps
 
-- [Concepts](/freeradius-k8s-operator/concepts/) — RADIUS fundamentals for Kubernetes engineers (and vice versa)
-- [Architecture](/freeradius-k8s-operator/architecture/) — Understand how the operator is structured
-- [CRD Reference](/freeradius-k8s-operator/reference/radiuscluster/) — Full specification for all custom resources
-- [Modules Guide](/freeradius-k8s-operator/guides/modules/) — Configure SQL, LDAP, EAP, REST, and Redis backends
-- [Examples](/freeradius-k8s-operator/examples/) — Complete deployment scenarios (campus WiFi, ISP, VPN)
-- [Development](/freeradius-k8s-operator/development/) — Build, test, and contribute to the project
+- [Concepts](concepts/) — RADIUS fundamentals for Kubernetes engineers (and vice versa)
+- [Architecture](architecture/) — Understand how the operator is structured
+- [CRD Reference](reference/radiuscluster/) — Full specification for all custom resources
+- [Modules Guide](guides/modules/) — Configure SQL, LDAP, EAP, REST, and Redis backends
+- [Examples](examples/) — Complete deployment scenarios (campus WiFi, ISP, VPN)
+- [Development](development/) — Build, test, and contribute to the project

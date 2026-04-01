@@ -1,20 +1,6 @@
----
-title: Security
-parent: Guides
-nav_order: 5
----
-
 # Security
-{: .no_toc }
 
 How the operator handles secrets, and best practices for hardening your deployment.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -123,7 +109,7 @@ spec:
 
 ### Use TLS (RadSec)
 
-For environments where RADIUS traffic crosses untrusted networks, enable [TLS](/freeradius-k8s-operator/guides/tls/) to encrypt all RADIUS communication.
+For environments where RADIUS traffic crosses untrusted networks, enable [TLS](guides/tls/) to encrypt all RADIUS communication.
 
 ## RBAC Best Practices
 
@@ -154,8 +140,8 @@ rules:
     verbs: ["create", "get", "list"]
 ```
 
-{: .warning }
-> Anyone who can create a `RadiusClient` with a `secretRef` can cause the operator to mount and read any Secret in the namespace. Treat `RadiusClient` create/update permissions as equivalent to Secret read access.
+!!! warning
+    Anyone who can create a `RadiusClient` with a `secretRef` can cause the operator to mount and read any Secret in the namespace. Treat `RadiusClient` create/update permissions as equivalent to Secret read access.
 
 ## Secrets at Rest
 

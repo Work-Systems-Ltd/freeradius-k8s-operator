@@ -1,20 +1,6 @@
----
-title: Observability
-parent: Guides
-nav_order: 4
----
-
 # Observability
-{: .no_toc }
 
 Monitor the operator and your RADIUS infrastructure with Prometheus metrics.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 

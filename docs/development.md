@@ -1,19 +1,6 @@
----
-title: Development
-nav_order: 6
----
-
 # Development
-{: .no_toc }
 
 Build, test, and contribute to the FreeRADIUS Kubernetes Operator.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 

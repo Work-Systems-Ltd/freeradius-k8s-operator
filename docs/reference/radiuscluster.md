@@ -1,20 +1,6 @@
----
-title: RadiusCluster
-parent: CRD Reference
-nav_order: 1
----
-
 # RadiusCluster
-{: .no_toc }
 
 The primary resource that defines a FreeRADIUS deployment.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -169,7 +155,7 @@ If not specified, the operator uses sensible defaults:
 
 ### `modules`
 
-List of FreeRADIUS modules to enable. See the [Modules Guide](/freeradius-k8s-operator/guides/modules/) for detailed configuration.
+List of FreeRADIUS modules to enable. See the [Modules Guide](guides/modules/) for detailed configuration.
 
 ```yaml
 modules:

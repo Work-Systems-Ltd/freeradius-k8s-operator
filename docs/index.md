@@ -1,17 +1,13 @@
----
-title: Home
-layout: home
-nav_order: 1
----
+<div style="text-align: center; margin-bottom: 2rem;">
+  <img src="assets/images/logo.png" alt="FreeRADIUS K8s Operator" width="280">
+</div>
 
 # FreeRADIUS Kubernetes Operator
-{: .fs-9 }
 
 Declarative RADIUS infrastructure on Kubernetes. Define clusters, clients, and policies as native custom resources — the operator handles the rest.
-{: .fs-6 .fw-300 }
 
-[Get Started](/freeradius-k8s-operator/getting-started/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator){: .btn .fs-5 .mb-4 .mb-md-0 }
+[Get Started](getting-started/){ .md-button .md-button--primary }
+[View on GitHub](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator){ .md-button }
 
 ---
 
@@ -126,15 +122,15 @@ The operator reconciles the resources, renders the FreeRADIUS configuration, and
 
 ## New to RADIUS?
 
-If you're a Kubernetes engineer who hasn't worked with RADIUS before, start with the [Concepts](/freeradius-k8s-operator/concepts/) page. It explains the AAA model, how RADIUS processing stages work, and maps every RADIUS concept to its Kubernetes equivalent.
+If you're a Kubernetes engineer who hasn't worked with RADIUS before, start with the [Concepts](concepts/) page. It explains the AAA model, how RADIUS processing stages work, and maps every RADIUS concept to its Kubernetes equivalent.
 
 ## Project Status
 
 This project is in **alpha** (`v1alpha1`). The API surface is stabilizing but may change between releases. It is suitable for development, testing, and non-critical deployments.
 
-{: .warning }
-> CRD schemas may change in future versions. Always review release notes before upgrading.
+!!! warning
+    CRD schemas may change in future versions. Always review release notes before upgrading.
 
 ## Contributing
 
-Contributions are welcome! See the [Development](/freeradius-k8s-operator/development/) page and [CONTRIBUTING.md](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/blob/master/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! See the [Development](development/) page and [CONTRIBUTING.md](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/blob/master/CONTRIBUTING.md) for guidelines.

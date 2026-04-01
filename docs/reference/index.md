@@ -1,9 +1,3 @@
----
-title: CRD Reference
-nav_order: 4
-has_children: true
----
-
 # CRD Reference
 
 Complete specification for the three custom resources that define your RADIUS infrastructure.

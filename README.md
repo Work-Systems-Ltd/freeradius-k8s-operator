@@ -1,9 +1,22 @@
-# freeradius-k8s-operator
+<p align="center">
+  <img src="media/logo.png" alt="FreeRADIUS K8s Operator" width="300">
+</p>
 
-[![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub_Pages-blue?logo=github)](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/)
+<h1 align="center">FreeRADIUS K8s Operator</h1>
+
+<p align="center">
+  <strong>Declarative RADIUS infrastructure on Kubernetes.</strong><br>
+  Define clusters, clients, and policies as native custom resources — the operator handles the rest.
+</p>
+
+<p align="center">
+  <a href="https://go.dev"><img src="https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white" alt="Go"></a>
+  <a href="https://kubernetes.io"><img src="https://img.shields.io/badge/Kubernetes-1.28+-326CE5?logo=kubernetes&logoColor=white" alt="Kubernetes"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License"></a>
+  <a href="https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/"><img src="https://img.shields.io/badge/docs-GitHub_Pages-blue?logo=github" alt="Docs"></a>
+</p>
+
+---
 
 A Kubernetes operator for managing FreeRADIUS deployments, clients, and policies via custom resources.
 

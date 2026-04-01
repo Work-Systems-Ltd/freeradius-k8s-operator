@@ -1,19 +1,6 @@
----
-title: Examples
-nav_order: 7
----
-
 # Examples
-{: .no_toc }
 
 Complete deployment scenarios you can adapt to your environment.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -549,5 +536,5 @@ tenant-acme/                     tenant-globex/
 └── ConfigMap: acme-radius-cfg   └── ConfigMap: globex-radius-cfg
 ```
 
-{: .tip }
-> Use Kubernetes `ResourceQuotas` and `NetworkPolicies` to further isolate tenants and prevent resource contention.
+!!! tip
+    Use Kubernetes `ResourceQuotas` and `NetworkPolicies` to further isolate tenants and prevent resource contention.

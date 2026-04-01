@@ -1,20 +1,6 @@
----
-title: TLS Configuration
-parent: Guides
-nav_order: 3
----
-
 # TLS Configuration
-{: .no_toc }
 
 Secure RADIUS traffic with TLS (RadSec).
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 

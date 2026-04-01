@@ -1,0 +1,155 @@
+/* Work Systems brand palette */
+:root {
+  --md-primary-fg-color: #111111;
+  --md-primary-fg-color--light: #1E1E1E;
+  --md-primary-fg-color--dark: #000000;
+  --md-accent-fg-color: #FF6A3A;
+  --md-accent-fg-color--transparent: rgba(255, 106, 58, 0.12);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color: #111111;
+  --md-default-bg-color--light: #171717;
+  --md-default-fg-color: rgba(255, 255, 255, 0.87);
+  --md-default-fg-color--light: rgba(255, 255, 255, 0.54);
+  --md-code-bg-color: #1E1E1E;
+  --md-code-fg-color: #E0E0E0;
+  --md-typeset-a-color: #FF6A3A;
+}
+
+/* Header */
+.md-header {
+  background-color: #0A0A0A;
+}
+
+/* Navigation tabs */
+.md-tabs {
+  background-color: #0A0A0A;
+}
+
+/* Sidebar */
+.md-sidebar {
+  background-color: #111111;
+}
+
+.md-nav__link--active {
+  color: var(--md-accent-fg-color) !important;
+  font-weight: 600;
+}
+
+/* Code blocks */
+.md-typeset code {
+  border-radius: 6px;
+}
+
+.md-typeset pre {
+  border-radius: 12px;
+  border: 1px solid #2A2A2A;
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #2A2A2A;
+}
+
+.md-typeset table:not([class]) thead {
+  background-color: #1A1A1A;
+}
+
+.md-typeset table:not([class]) th {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  color: var(--md-accent-fg-color);
+}
+
+.md-typeset table:not([class]) tbody tr:hover {
+  background-color: rgba(255, 106, 58, 0.04);
+}
+
+/* Buttons */
+.md-typeset .md-button--primary {
+  background-color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+  border-radius: 100px;
+}
+
+.md-typeset .md-button--primary:hover {
+  background-color: #FF8A60;
+  border-color: #FF8A60;
+}
+
+.md-typeset .md-button {
+  border-radius: 100px;
+}
+
+/* Search */
+.md-search__input {
+  border-radius: 100px;
+}
+
+/* Admonitions */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 12px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #111111;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #333333;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555555;
+}
+
+/* Selection */
+::selection {
+  background: rgba(255, 106, 58, 0.3);
+  color: #FFFFFF;
+}
+
+/* Sidebar logo */
+.md-header__button.md-logo img,
+.md-nav__button.md-logo img {
+  height: 2rem;
+  width: auto;
+  object-fit: contain;
+}
+
+/* Hero logo on home page */
+.md-typeset img[alt="FreeRADIUS K8s Operator"] {
+  filter: drop-shadow(0 8px 32px rgba(255, 106, 58, 0.2));
+  transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.md-typeset img[alt="FreeRADIUS K8s Operator"]:hover {
+  transform: scale(1.03);
+  filter: drop-shadow(0 12px 40px rgba(255, 106, 58, 0.35));
+}
+
+/* Footer */
+.md-footer {
+  background-color: #0A0A0A;
+}
+
+/* Mermaid diagrams */
+.mermaid {
+  background: #1A1A1A;
+  border: 1px solid #2A2A2A;
+  border-radius: 20px;
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+}

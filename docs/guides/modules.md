@@ -1,20 +1,6 @@
----
-title: Modules Guide
-parent: Guides
-nav_order: 1
----
-
 # Modules Guide
-{: .no_toc }
 
 Configure backend modules for SQL, LDAP, EAP, REST, and Redis.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 

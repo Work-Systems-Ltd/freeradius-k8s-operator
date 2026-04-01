@@ -1,20 +1,6 @@
----
-title: Upgrading
-parent: Guides
-nav_order: 6
----
-
 # Upgrading
-{: .no_toc }
 
 How to upgrade the operator, FreeRADIUS, and CRDs safely.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
@@ -147,8 +133,8 @@ If a field is renamed, moved, or its type changes, you need to update your manif
    kubectl apply -f updated-manifests/
    ```
 
-{: .warning }
-> The project is currently at `v1alpha1`. The API surface may change between releases. Always review release notes and back up resources before upgrading CRDs.
+!!! warning
+    The project is currently at `v1alpha1`. The API surface may change between releases. Always review release notes and back up resources before upgrading CRDs.
 
 ---
 

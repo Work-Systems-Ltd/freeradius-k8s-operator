@@ -1,19 +1,6 @@
----
-title: Concepts
-nav_order: 2.5
----
-
 # Concepts
-{: .no_toc }
 
 RADIUS fundamentals for Kubernetes engineers — and Kubernetes fundamentals for network engineers.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 

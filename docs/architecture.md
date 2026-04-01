@@ -1,19 +1,6 @@
----
-title: Architecture
-nav_order: 3
----
-
 # Architecture
-{: .no_toc }
 
 How the operator turns custom resources into a running FreeRADIUS deployment.
-{: .fs-6 .fw-300 }
-
-## Table of contents
-{: .no_toc .text-delta }
-
-1. TOC
-{:toc}
 
 ---
 
