@@ -32,14 +32,10 @@ func init() {
 }
 
 func main() {
-	var metricsAddr string
-	var probeAddr string
-	var watchNamespace string
-
-	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
-	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.StringVar(&watchNamespace, "watch-namespace", "", "Namespace to watch (empty = all namespaces).")
-
+	var metricsAddr, probeAddr, watchNamespace string
+	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "Metrics endpoint bind address.")
+	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Health probe bind address.")
+	flag.StringVar(&watchNamespace, "watch-namespace", "", "Namespace to watch (empty = all).")
 	flag.Parse()
 
 	zapCfg := zap.NewProductionConfig()
@@ -52,19 +48,14 @@ func main() {
 	ctrl.SetLogger(zapr.NewLogger(zapLogger))
 
 	mgrOpts := ctrl.Options{
-		Scheme: scheme,
-		Metrics: metricsserver.Options{
-			BindAddress: metricsAddr,
-		},
+		Scheme:                 scheme,
+		Metrics:                metricsserver.Options{BindAddress: metricsAddr},
 		HealthProbeBindAddress: probeAddr,
 	}
 	if watchNamespace != "" {
-		mgrOpts.Cache = cache.Options{
-			DefaultNamespaces: map[string]cache.Config{
-				watchNamespace: {},
-			},
-		}
+		mgrOpts.Cache = cache.Options{DefaultNamespaces: map[string]cache.Config{watchNamespace: {}}}
 	}
+
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), mgrOpts)
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -74,32 +65,23 @@ func main() {
 	statusReporter := status.New(mgr.GetClient())
 	configRenderer := renderer.New()
 
-	// Register RadiusCluster controller
 	if err := (&controller.RadiusClusterReconciler{
-		Client:   mgr.GetClient(),
-		Scheme:   mgr.GetScheme(),
-		Renderer: configRenderer,
-		Status:   statusReporter,
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(),
+		Renderer: configRenderer, Status: statusReporter,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RadiusCluster")
 		os.Exit(1)
 	}
 
-	// Register RadiusClient controller
 	if err := (&controller.RadiusClientReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Status: statusReporter,
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Status: statusReporter,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RadiusClient")
 		os.Exit(1)
 	}
 
-	// Register RadiusPolicy controller
 	if err := (&controller.RadiusPolicyReconciler{
-		Client: mgr.GetClient(),
-		Scheme: mgr.GetScheme(),
-		Status: statusReporter,
+		Client: mgr.GetClient(), Scheme: mgr.GetScheme(), Status: statusReporter,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RadiusPolicy")
 		os.Exit(1)

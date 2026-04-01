@@ -17,7 +17,6 @@ import (
 	"github.com/example/freeradius-operator/internal/status"
 )
 
-// RadiusClientReconciler reconciles a RadiusClient object.
 type RadiusClientReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -33,12 +32,10 @@ func (r *RadiusClientReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	result := "success"
 
 	defer func() {
-		duration := time.Since(start).Seconds()
 		metrics.ReconcileTotal.WithLabelValues(req.Namespace, req.Name, "RadiusClient", result).Inc()
-		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusClient").Observe(duration)
+		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusClient").Observe(time.Since(start).Seconds())
 	}()
 
-	// Fetch the RadiusClient
 	rc := &radiusv1alpha1.RadiusClient{}
 	if err := r.Get(ctx, req.NamespacedName, rc); err != nil {
 		if errors.IsNotFound(err) {
@@ -48,17 +45,12 @@ func (r *RadiusClientReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// Validate clusterRef exists in the same namespace
 	cluster := &radiusv1alpha1.RadiusCluster{}
-	clusterKey := types.NamespacedName{Namespace: req.Namespace, Name: rc.Spec.ClusterRef}
-	if err := r.Get(ctx, clusterKey, cluster); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: rc.Spec.ClusterRef}, cluster); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("clusterRef not found, setting Invalid", "clusterRef", rc.Spec.ClusterRef)
-			if statusErr := r.Status.SetClientInvalid(ctx, rc, true, "ClusterNotFound",
-				fmt.Sprintf("RadiusCluster %q not found in namespace %q", rc.Spec.ClusterRef, req.Namespace)); statusErr != nil {
-				logger.Error(statusErr, "unable to set Invalid status")
-			}
-			// Re-fetch and set Ready=false
+			_ = r.Status.SetClientInvalid(ctx, rc, true, "ClusterNotFound",
+				fmt.Sprintf("RadiusCluster %q not found in namespace %q", rc.Spec.ClusterRef, req.Namespace))
 			if err := r.Get(ctx, req.NamespacedName, rc); err == nil {
 				_ = r.Status.SetClientReady(ctx, rc, false, "ClusterNotFound", "Waiting for RadiusCluster")
 			}
@@ -69,23 +61,15 @@ func (r *RadiusClientReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, fmt.Errorf("fetching RadiusCluster %q: %w", rc.Spec.ClusterRef, err)
 	}
 
-	// ClusterRef is valid — set Ready and clear Invalid
-	if statusErr := r.Status.SetClientReady(ctx, rc, true, "Valid", "RadiusClient is valid"); statusErr != nil {
-		logger.Error(statusErr, "unable to set Ready status")
-	}
+	_ = r.Status.SetClientReady(ctx, rc, true, "Valid", "RadiusClient is valid")
 	if err := r.Get(ctx, req.NamespacedName, rc); err == nil {
-		if statusErr := r.Status.SetClientInvalid(ctx, rc, false, "Valid", "RadiusClient is valid"); statusErr != nil {
-			logger.Error(statusErr, "unable to clear Invalid status")
-		}
+		_ = r.Status.SetClientInvalid(ctx, rc, false, "Valid", "RadiusClient is valid")
 	}
 
 	logger.Info("reconciliation complete")
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *RadiusClientReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&radiusv1alpha1.RadiusClient{}).
-		Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&radiusv1alpha1.RadiusClient{}).Complete(r)
 }

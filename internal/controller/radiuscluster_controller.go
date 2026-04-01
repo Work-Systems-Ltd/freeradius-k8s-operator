@@ -1,4 +1,3 @@
-// Package controller implements the Kubernetes controllers for the freeradius-operator.
 package controller
 
 import (
@@ -36,7 +35,6 @@ const (
 	hpaSuffix        = "-freeradius"
 )
 
-// RadiusClusterReconciler reconciles a RadiusCluster object.
 type RadiusClusterReconciler struct {
 	client.Client
 	Scheme   *runtime.Scheme
@@ -62,12 +60,10 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	result := "success"
 
 	defer func() {
-		duration := time.Since(start).Seconds()
 		metrics.ReconcileTotal.WithLabelValues(req.Namespace, req.Name, "RadiusCluster", result).Inc()
-		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusCluster").Observe(duration)
+		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusCluster").Observe(time.Since(start).Seconds())
 	}()
 
-	// Fetch the RadiusCluster
 	cluster := &radiusv1alpha1.RadiusCluster{}
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		if errors.IsNotFound(err) {
@@ -77,53 +73,33 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	// Set Progressing
 	if err := r.Status.SetProgressing(ctx, cluster, true); err != nil {
 		logger.Error(err, "unable to set Progressing status")
 	}
-	// Re-fetch after status update to avoid conflicts
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		result = "error"
 		return ctrl.Result{}, err
 	}
 
-	// List RadiusClients for this cluster
-	clientList := &radiusv1alpha1.RadiusClientList{}
-	if err := r.List(ctx, clientList, client.InNamespace(req.Namespace)); err != nil {
+	matchingClients, err := r.listMatchingClients(ctx, req.Namespace, cluster.Name)
+	if err != nil {
 		result = "error"
-		return ctrl.Result{}, fmt.Errorf("listing RadiusClients: %w", err)
-	}
-	var matchingClients []radiusv1alpha1.RadiusClient
-	for _, c := range clientList.Items {
-		if c.Spec.ClusterRef == cluster.Name {
-			matchingClients = append(matchingClients, c)
-		}
+		return ctrl.Result{}, err
 	}
 
-	// List RadiusPolicies for this cluster
-	policyList := &radiusv1alpha1.RadiusPolicyList{}
-	if err := r.List(ctx, policyList, client.InNamespace(req.Namespace)); err != nil {
+	matchingPolicies, err := r.listMatchingPolicies(ctx, req.Namespace, cluster.Name)
+	if err != nil {
 		result = "error"
-		return ctrl.Result{}, fmt.Errorf("listing RadiusPolicies: %w", err)
-	}
-	var matchingPolicies []radiusv1alpha1.RadiusPolicy
-	for _, p := range policyList.Items {
-		if p.Spec.ClusterRef == cluster.Name {
-			matchingPolicies = append(matchingPolicies, p)
-		}
+		return ctrl.Result{}, err
 	}
 
-	// Resolve secrets — check they exist
 	secretRefs := collectSecretRefs(cluster, matchingClients)
 	for _, ref := range secretRefs {
 		secret := &corev1.Secret{}
 		if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: ref.Name}, secret); err != nil {
 			if errors.IsNotFound(err) {
 				logger.Error(err, "referenced Secret not found", "secret", ref.Name)
-				if statusErr := r.Status.SetDegraded(ctx, cluster, true, "MissingSecret",
-					fmt.Sprintf("Secret %q not found", ref.Name)); statusErr != nil {
-					logger.Error(statusErr, "unable to set Degraded status")
-				}
+				_ = r.Status.SetDegraded(ctx, cluster, true, "MissingSecret", fmt.Sprintf("Secret %q not found", ref.Name))
 				result = "error"
 				return ctrl.Result{RequeueAfter: 30 * time.Second}, nil
 			}
@@ -132,53 +108,35 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Build RenderContext
 	renderCtx := buildRenderContext(cluster, matchingClients, matchingPolicies)
-
-	// Render config
 	configFiles, err := r.Renderer.Render(renderCtx)
 	if err != nil {
 		if isInvalidError(err) {
 			logger.Error(err, "invalid spec")
-			if statusErr := r.Status.SetDegraded(ctx, cluster, true, "InvalidSpec", err.Error()); statusErr != nil {
-				logger.Error(statusErr, "unable to set Degraded status")
-			}
+			_ = r.Status.SetDegraded(ctx, cluster, true, "InvalidSpec", err.Error())
 			result = "error"
-			return ctrl.Result{}, nil // Don't requeue for invalid specs
+			return ctrl.Result{}, nil
 		}
 		result = "error"
 		return ctrl.Result{}, fmt.Errorf("rendering config: %w", err)
 	}
 
-	// CreateOrUpdate ConfigMap
-	if err := r.reconcileConfigMap(ctx, cluster, configFiles); err != nil {
-		result = "error"
-		return ctrl.Result{}, fmt.Errorf("reconciling ConfigMap: %w", err)
+	for _, reconcileFn := range []func() error{
+		func() error { return r.reconcileConfigMap(ctx, cluster, configFiles) },
+		func() error { return r.reconcileDeployment(ctx, cluster, secretRefs) },
+		func() error { return r.reconcileService(ctx, cluster) },
+		func() error { return r.reconcileHPA(ctx, cluster) },
+	} {
+		if err := reconcileFn(); err != nil {
+			result = "error"
+			return ctrl.Result{}, err
+		}
 	}
 
-	// CreateOrUpdate Deployment
-	if err := r.reconcileDeployment(ctx, cluster, secretRefs); err != nil {
-		result = "error"
-		return ctrl.Result{}, fmt.Errorf("reconciling Deployment: %w", err)
-	}
-
-	// CreateOrUpdate Service
-	if err := r.reconcileService(ctx, cluster); err != nil {
-		result = "error"
-		return ctrl.Result{}, fmt.Errorf("reconciling Service: %w", err)
-	}
-
-	// Manage HPA
-	if err := r.reconcileHPA(ctx, cluster); err != nil {
-		result = "error"
-		return ctrl.Result{}, fmt.Errorf("reconciling HPA: %w", err)
-	}
-
-	// Update status
+	// Update status fields from deployment
 	deploy := &appsv1.Deployment{}
 	deployName := types.NamespacedName{Namespace: req.Namespace, Name: cluster.Name + deploymentSuffix}
 	if err := r.Get(ctx, deployName, deploy); err == nil {
-		// Re-fetch cluster before status update
 		if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 			result = "error"
 			return ctrl.Result{}, err
@@ -189,7 +147,7 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Batch all final status condition updates into a single write.
+	// Batch final condition updates
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		result = "error"
 		return ctrl.Result{}, err
@@ -197,31 +155,51 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	r.Status.SetConditionLocal(&cluster.Status.Conditions, "Degraded", false, "AllSecretsPresent", "All referenced secrets are available")
 	r.Status.SetConditionLocal(&cluster.Status.Conditions, "Available", true, "ReconcileComplete", "All resources reconciled successfully")
 	r.Status.SetConditionLocal(&cluster.Status.Conditions, "Progressing", false, "ReconcileComplete", "Reconciliation completed successfully")
-	if statusErr := r.Status.FlushClusterStatus(ctx, cluster); statusErr != nil {
-		logger.Error(statusErr, "unable to update final status conditions")
+	if err := r.Status.FlushClusterStatus(ctx, cluster); err != nil {
+		logger.Error(err, "unable to update final status conditions")
 	}
 
 	logger.Info("reconciliation complete")
 	return ctrl.Result{}, nil
 }
 
-func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, files renderer.ConfigFiles) error {
-	cm := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name + configMapSuffix,
-			Namespace: cluster.Namespace,
-		},
+func (r *RadiusClusterReconciler) listMatchingClients(ctx context.Context, ns, clusterName string) ([]radiusv1alpha1.RadiusClient, error) {
+	list := &radiusv1alpha1.RadiusClientList{}
+	if err := r.List(ctx, list, client.InNamespace(ns)); err != nil {
+		return nil, fmt.Errorf("listing RadiusClients: %w", err)
 	}
+	var out []radiusv1alpha1.RadiusClient
+	for _, c := range list.Items {
+		if c.Spec.ClusterRef == clusterName {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
 
+func (r *RadiusClusterReconciler) listMatchingPolicies(ctx context.Context, ns, clusterName string) ([]radiusv1alpha1.RadiusPolicy, error) {
+	list := &radiusv1alpha1.RadiusPolicyList{}
+	if err := r.List(ctx, list, client.InNamespace(ns)); err != nil {
+		return nil, fmt.Errorf("listing RadiusPolicies: %w", err)
+	}
+	var out []radiusv1alpha1.RadiusPolicy
+	for _, p := range list.Items {
+		if p.Spec.ClusterRef == clusterName {
+			out = append(out, p)
+		}
+	}
+	return out, nil
+}
+
+func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, files renderer.ConfigFiles) error {
+	cm := &corev1.ConfigMap{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + configMapSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, cm, func() error {
 		if err := ctrl.SetControllerReference(cluster, cm, r.Scheme); err != nil {
 			return err
 		}
 		cm.Data = make(map[string]string, len(files))
 		for k, v := range files {
-			// Replace / with __ for ConfigMap key compatibility
-			key := strings.ReplaceAll(k, "/", "__")
-			cm.Data[key] = v
+			cm.Data[strings.ReplaceAll(k, "/", "__")] = v
 		}
 		return nil
 	})
@@ -229,31 +207,17 @@ func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluste
 }
 
 func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef) error {
-	deploy := &appsv1.Deployment{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name + deploymentSuffix,
-			Namespace: cluster.Namespace,
-		},
-	}
-
+	deploy := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + deploymentSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		if err := ctrl.SetControllerReference(cluster, deploy, r.Scheme); err != nil {
 			return err
 		}
-
-		labels := map[string]string{
-			"app.kubernetes.io/name":       "freeradius",
-			"app.kubernetes.io/instance":   cluster.Name,
-			"app.kubernetes.io/managed-by": "freeradius-operator",
-		}
-
+		labels := podLabels(cluster.Name)
 		maxUnavailable := intstr.FromInt(0)
 		maxSurge := intstr.FromInt(1)
 
 		deploy.Spec = appsv1.DeploymentSpec{
-			Selector: &metav1.LabelSelector{
-				MatchLabels: labels,
-			},
+			Selector: &metav1.LabelSelector{MatchLabels: labels},
 			Strategy: appsv1.DeploymentStrategy{
 				Type: appsv1.RollingUpdateDeploymentStrategyType,
 				RollingUpdate: &appsv1.RollingUpdateDeployment{
@@ -262,20 +226,15 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: labels,
-				},
-				Spec: r.buildPodSpec(cluster, secretRefs),
+				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				Spec:       r.buildPodSpec(cluster, secretRefs),
 			},
 		}
 
-		// Only set replicas when autoscaling is not enabled,
-		// to avoid fighting with the HPA controller.
 		if cluster.Spec.Autoscaling == nil || !cluster.Spec.Autoscaling.Enabled {
 			replicas := cluster.Spec.Replicas
 			deploy.Spec.Replicas = &replicas
 		}
-
 		return nil
 	})
 	return err
@@ -283,90 +242,61 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 
 func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef) corev1.PodSpec {
 	configMapName := cluster.Name + configMapSuffix
+	falseVal := false
+	trueVal := true
+	nobody := int64(65534)
 
-	// Volumes
 	volumes := []corev1.Volume{
-		{
-			Name: "freeradius-config",
-			VolumeSource: corev1.VolumeSource{
-				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: corev1.LocalObjectReference{Name: configMapName},
-				},
-			},
-		},
-		{
-			Name: "freeradius-config-rendered",
-			VolumeSource: corev1.VolumeSource{
-				EmptyDir: &corev1.EmptyDirVolumeSource{},
-			},
-		},
+		{Name: "freeradius-config", VolumeSource: corev1.VolumeSource{
+			ConfigMap: &corev1.ConfigMapVolumeSource{LocalObjectReference: corev1.LocalObjectReference{Name: configMapName}},
+		}},
+		{Name: "freeradius-config-rendered", VolumeSource: corev1.VolumeSource{EmptyDir: &corev1.EmptyDirVolumeSource{}}},
 	}
 
-	// Add secret volumes
 	for _, ref := range secretRefs {
-		volName := "secret-" + ref.Name
 		mode := int32(0400)
 		volumes = append(volumes, corev1.Volume{
-			Name: volName,
+			Name: "secret-" + ref.Name,
 			VolumeSource: corev1.VolumeSource{
-				Secret: &corev1.SecretVolumeSource{
-					SecretName:  ref.Name,
-					DefaultMode: &mode,
-				},
+				Secret: &corev1.SecretVolumeSource{SecretName: ref.Name, DefaultMode: &mode},
 			},
 		})
 	}
 
-	// Init container to reconstruct directory structure from __ separated keys
-	initVolumeMounts := []corev1.VolumeMount{
-		{Name: "freeradius-config", MountPath: "/config-flat", ReadOnly: true},
-		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
+	restrictedSC := &corev1.SecurityContext{
+		AllowPrivilegeEscalation: &falseVal,
+		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 	}
 
-	allowPrivEsc := false
 	initContainer := corev1.Container{
 		Name:  "config-init",
 		Image: "docker.io/library/busybox:1.36",
-		Command: []string{"sh", "-c", `
-cd /config-flat
+		Command: []string{"sh", "-c", `cd /config-flat
 for f in *; do
   target=$(echo "$f" | sed 's/__/\//g')
   mkdir -p "/etc/freeradius/$(dirname "$target")"
   cp "$f" "/etc/freeradius/$target"
-done
-`},
-		VolumeMounts: initVolumeMounts,
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivEsc,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
+done`},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "freeradius-config", MountPath: "/config-flat", ReadOnly: true},
+			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
 		},
+		SecurityContext: restrictedSC,
 		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("10m"),
-				corev1.ResourceMemory: resource.MustParse("16Mi"),
-			},
-			Limits: corev1.ResourceList{
-				corev1.ResourceCPU:    resource.MustParse("50m"),
-				corev1.ResourceMemory: resource.MustParse("32Mi"),
-			},
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
 		},
 	}
 
-	// Main container volume mounts
-	mainVolumeMounts := []corev1.VolumeMount{
+	mainMounts := []corev1.VolumeMount{
 		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius", ReadOnly: true},
 	}
 	for _, ref := range secretRefs {
-		mainVolumeMounts = append(mainVolumeMounts, corev1.VolumeMount{
-			Name:      "secret-" + ref.Name,
-			MountPath: "/etc/freeradius/secrets/" + ref.Name,
-			ReadOnly:  true,
+		mainMounts = append(mainMounts, corev1.VolumeMount{
+			Name: "secret-" + ref.Name, MountPath: "/etc/freeradius/secrets/" + ref.Name, ReadOnly: true,
 		})
 	}
 
-	// Probes
 	liveness, readiness := defaultProbes()
 	if cluster.Spec.Probes != nil {
 		if cluster.Spec.Probes.Liveness != nil {
@@ -385,27 +315,18 @@ done
 			{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
 			{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
 		},
-		SecurityContext: &corev1.SecurityContext{
-			AllowPrivilegeEscalation: &allowPrivEsc,
-			Capabilities: &corev1.Capabilities{
-				Drop: []corev1.Capability{"ALL"},
-			},
-		},
-		VolumeMounts:   mainVolumeMounts,
-		Resources:      cluster.Spec.Resources,
-		LivenessProbe:  liveness,
-		ReadinessProbe: readiness,
+		SecurityContext: restrictedSC,
+		VolumeMounts:    mainMounts,
+		Resources:       cluster.Spec.Resources,
+		LivenessProbe:   liveness,
+		ReadinessProbe:  readiness,
 	}
-
-	runAsNonRoot := true
-	runAsUser := int64(65534) // nobody
-	runAsGroup := int64(65534)
 
 	return corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot: &runAsNonRoot,
-			RunAsUser:    &runAsUser,
-			RunAsGroup:   &runAsGroup,
+			RunAsNonRoot: &trueVal,
+			RunAsUser:    &nobody,
+			RunAsGroup:   &nobody,
 		},
 		InitContainers: []corev1.Container{initContainer},
 		Containers:     []corev1.Container{mainContainer},
@@ -414,46 +335,22 @@ done
 }
 
 func defaultProbes() (*corev1.Probe, *corev1.Probe) {
-	liveness := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"radiusd", "-C"},
-			},
-		},
-		InitialDelaySeconds: 10,
-		PeriodSeconds:       30,
-	}
-	readiness := &corev1.Probe{
-		ProbeHandler: corev1.ProbeHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{"sh", "-c", "echo 'Message-Authenticator = 0x00' | radclient -x 127.0.0.1:1812 status testing123"},
-			},
-		},
-		InitialDelaySeconds: 5,
-		PeriodSeconds:       10,
-	}
-	return liveness, readiness
+	return &corev1.Probe{
+			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"radiusd", "-C"}}},
+			InitialDelaySeconds: 10, PeriodSeconds: 30,
+		}, &corev1.Probe{
+			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"sh", "-c", "echo 'Message-Authenticator = 0x00' | radclient -x 127.0.0.1:1812 status testing123"}}},
+			InitialDelaySeconds: 5, PeriodSeconds: 10,
+		}
 }
 
 func (r *RadiusClusterReconciler) reconcileService(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
-	svc := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name + serviceSuffix,
-			Namespace: cluster.Namespace,
-		},
-	}
-
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + serviceSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		if err := ctrl.SetControllerReference(cluster, svc, r.Scheme); err != nil {
 			return err
 		}
-
-		labels := map[string]string{
-			"app.kubernetes.io/name":       "freeradius",
-			"app.kubernetes.io/instance":   cluster.Name,
-			"app.kubernetes.io/managed-by": "freeradius-operator",
-		}
-
+		labels := podLabels(cluster.Name)
 		svc.Spec = corev1.ServiceSpec{
 			Type:     corev1.ServiceTypeClusterIP,
 			Selector: labels,
@@ -471,7 +368,6 @@ func (r *RadiusClusterReconciler) reconcileHPA(ctx context.Context, cluster *rad
 	hpaName := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + hpaSuffix}
 
 	if cluster.Spec.Autoscaling == nil || !cluster.Spec.Autoscaling.Enabled {
-		// Delete HPA if it exists
 		existing := &autoscalingv2.HorizontalPodAutoscaler{}
 		if err := r.Get(ctx, hpaName, existing); err == nil {
 			return r.Delete(ctx, existing)
@@ -479,53 +375,33 @@ func (r *RadiusClusterReconciler) reconcileHPA(ctx context.Context, cluster *rad
 		return nil
 	}
 
-	hpa := &autoscalingv2.HorizontalPodAutoscaler{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cluster.Name + hpaSuffix,
-			Namespace: cluster.Namespace,
-		},
-	}
-
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + hpaSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, hpa, func() error {
 		if err := ctrl.SetControllerReference(cluster, hpa, r.Scheme); err != nil {
 			return err
 		}
-
 		hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: "apps/v1",
-				Kind:       "Deployment",
-				Name:       cluster.Name + deploymentSuffix,
+				APIVersion: "apps/v1", Kind: "Deployment", Name: cluster.Name + deploymentSuffix,
 			},
 			MinReplicas: &cluster.Spec.Autoscaling.MinReplicas,
 			MaxReplicas: cluster.Spec.Autoscaling.MaxReplicas,
-			Metrics: []autoscalingv2.MetricSpec{
-				{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: &cluster.Spec.Autoscaling.TargetCPUUtilizationPercentage,
-						},
-					},
+			Metrics: []autoscalingv2.MetricSpec{{
+				Type: autoscalingv2.ResourceMetricSourceType,
+				Resource: &autoscalingv2.ResourceMetricSource{
+					Name:   corev1.ResourceCPU,
+					Target: autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType, AverageUtilization: &cluster.Spec.Autoscaling.TargetCPUUtilizationPercentage},
 				},
-			},
+			}},
 		}
 		return nil
 	})
 	return err
 }
 
-// countPodRestarts sums the restart count for all containers in pods matching the cluster's labels.
 func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespace, clusterName string) int32 {
 	podList := &corev1.PodList{}
-	labels := client.MatchingLabels{
-		"app.kubernetes.io/name":       "freeradius",
-		"app.kubernetes.io/instance":   clusterName,
-		"app.kubernetes.io/managed-by": "freeradius-operator",
-	}
-	if err := r.List(ctx, podList, client.InNamespace(namespace), labels); err != nil {
+	if err := r.List(ctx, podList, client.InNamespace(namespace), client.MatchingLabels(podLabels(clusterName))); err != nil {
 		return 0
 	}
 	var total int32
@@ -537,30 +413,29 @@ func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespac
 	return total
 }
 
-// collectSecretRefs gathers all unique SecretRef names from the cluster spec and its clients.
+func podLabels(clusterName string) map[string]string {
+	return map[string]string{
+		"app.kubernetes.io/name":       "freeradius",
+		"app.kubernetes.io/instance":   clusterName,
+		"app.kubernetes.io/managed-by": "freeradius-operator",
+	}
+}
+
 func collectSecretRefs(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1alpha1.RadiusClient) []renderer.SecretRef {
 	seen := make(map[string]bool)
 	var refs []renderer.SecretRef
 
 	add := func(name, key string) {
-		if name == "" {
-			return
-		}
-		// Deduplicate by secret name. The volume mount exposes
-		// the entire secret, so we only need one entry per name.
-		if seen[name] {
+		if name == "" || seen[name] {
 			return
 		}
 		seen[name] = true
 		refs = append(refs, renderer.SecretRef{Name: name, Key: key})
 	}
 
-	// TLS secret
 	if cluster.Spec.TLS != nil && cluster.Spec.TLS.Enabled {
 		add(cluster.Spec.TLS.SecretRef.Name, cluster.Spec.TLS.SecretRef.Key)
 	}
-
-	// Module secrets
 	for _, mod := range cluster.Spec.Modules {
 		if !mod.Enabled {
 			continue
@@ -578,103 +453,62 @@ func collectSecretRefs(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1
 			add(mod.Redis.PasswordRef.Name, mod.Redis.PasswordRef.Key)
 		}
 	}
-
-	// Client secrets
 	for _, c := range clients {
 		add(c.Spec.SecretRef.Name, c.Spec.SecretRef.Key)
 	}
-
 	return refs
 }
 
-// buildRenderContext converts Kubernetes types to renderer types.
 func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1alpha1.RadiusClient, policies []radiusv1alpha1.RadiusPolicy) renderer.RenderContext {
-	// Convert modules
-	var modules []renderer.ModuleConfig
+	modules := make([]renderer.ModuleConfig, 0, len(cluster.Spec.Modules))
 	for _, m := range cluster.Spec.Modules {
-		mod := renderer.ModuleConfig{
-			Name:    m.Name,
-			Type:    m.Type,
-			Enabled: m.Enabled,
-		}
+		mod := renderer.ModuleConfig{Name: m.Name, Type: m.Type, Enabled: m.Enabled}
 		if m.SQL != nil {
 			mod.SQL = &renderer.SQLConfig{
-				Dialect:     m.SQL.Dialect,
-				Server:      m.SQL.Server,
-				Port:        m.SQL.Port,
-				Database:    m.SQL.Database,
-				Login:       m.SQL.Login,
+				Dialect: m.SQL.Dialect, Server: m.SQL.Server, Port: m.SQL.Port,
+				Database: m.SQL.Database, Login: m.SQL.Login,
 				PasswordRef: renderer.SecretRef{Name: m.SQL.PasswordRef.Name, Key: m.SQL.PasswordRef.Key},
 			}
 		}
 		if m.LDAP != nil {
 			mod.LDAP = &renderer.LDAPConfig{
-				Server:      m.LDAP.Server,
-				Port:        m.LDAP.Port,
-				BaseDN:      m.LDAP.BaseDN,
-				Identity:    m.LDAP.Identity,
+				Server: m.LDAP.Server, Port: m.LDAP.Port, BaseDN: m.LDAP.BaseDN, Identity: m.LDAP.Identity,
 				PasswordRef: renderer.SecretRef{Name: m.LDAP.PasswordRef.Name, Key: m.LDAP.PasswordRef.Key},
 			}
 		}
 		if m.EAP != nil {
-			mod.EAP = &renderer.EAPConfig{
-				DefaultEAPType: m.EAP.DefaultEAPType,
-			}
+			mod.EAP = &renderer.EAPConfig{DefaultEAPType: m.EAP.DefaultEAPType}
 			if m.EAP.TLS != nil {
-				mod.EAP.TLS = &renderer.EAPTLSConfig{
-					CertFile: m.EAP.TLS.CertFile,
-					KeyFile:  m.EAP.TLS.KeyFile,
-				}
+				mod.EAP.TLS = &renderer.EAPTLSConfig{CertFile: m.EAP.TLS.CertFile, KeyFile: m.EAP.TLS.KeyFile}
 			}
 			if m.EAP.TTLS != nil {
-				mod.EAP.TTLS = &renderer.EAPTTLSConfig{
-					DefaultEAPType: m.EAP.TTLS.DefaultEAPType,
-					VirtualServer:  m.EAP.TTLS.VirtualServer,
-				}
+				mod.EAP.TTLS = &renderer.EAPTTLSConfig{DefaultEAPType: m.EAP.TTLS.DefaultEAPType, VirtualServer: m.EAP.TTLS.VirtualServer}
 			}
 			if m.EAP.PEAP != nil {
-				mod.EAP.PEAP = &renderer.EAPPEAPConfig{
-					DefaultEAPType: m.EAP.PEAP.DefaultEAPType,
-					VirtualServer:  m.EAP.PEAP.VirtualServer,
-				}
+				mod.EAP.PEAP = &renderer.EAPPEAPConfig{DefaultEAPType: m.EAP.PEAP.DefaultEAPType, VirtualServer: m.EAP.PEAP.VirtualServer}
 			}
 		}
 		if m.REST != nil {
-			mod.REST = &renderer.RESTConfig{
-				ConnectURI: m.REST.ConnectURI,
-				Auth:       m.REST.Auth,
-			}
+			mod.REST = &renderer.RESTConfig{ConnectURI: m.REST.ConnectURI, Auth: m.REST.Auth}
 			if m.REST.PasswordRef != nil {
 				mod.REST.PasswordRef = &renderer.SecretRef{Name: m.REST.PasswordRef.Name, Key: m.REST.PasswordRef.Key}
 			}
-			if m.REST.Authorize != nil {
-				mod.REST.Authorize = &renderer.RESTStageConfig{URI: m.REST.Authorize.URI, Method: m.REST.Authorize.Method}
-			}
-			if m.REST.Authenticate != nil {
-				mod.REST.Authenticate = &renderer.RESTStageConfig{URI: m.REST.Authenticate.URI, Method: m.REST.Authenticate.Method}
-			}
-			if m.REST.Preacct != nil {
-				mod.REST.Preacct = &renderer.RESTStageConfig{URI: m.REST.Preacct.URI, Method: m.REST.Preacct.Method}
-			}
-			if m.REST.Accounting != nil {
-				mod.REST.Accounting = &renderer.RESTStageConfig{URI: m.REST.Accounting.URI, Method: m.REST.Accounting.Method}
-			}
-			if m.REST.PostAuth != nil {
-				mod.REST.PostAuth = &renderer.RESTStageConfig{URI: m.REST.PostAuth.URI, Method: m.REST.PostAuth.Method}
-			}
-			if m.REST.PreProxy != nil {
-				mod.REST.PreProxy = &renderer.RESTStageConfig{URI: m.REST.PreProxy.URI, Method: m.REST.PreProxy.Method}
-			}
-			if m.REST.PostProxy != nil {
-				mod.REST.PostProxy = &renderer.RESTStageConfig{URI: m.REST.PostProxy.URI, Method: m.REST.PostProxy.Method}
+			for _, pair := range []struct {
+				src  *radiusv1alpha1.RESTStageConfig
+				dest **renderer.RESTStageConfig
+			}{
+				{m.REST.Authorize, &mod.REST.Authorize}, {m.REST.Authenticate, &mod.REST.Authenticate},
+				{m.REST.Preacct, &mod.REST.Preacct}, {m.REST.Accounting, &mod.REST.Accounting},
+				{m.REST.PostAuth, &mod.REST.PostAuth}, {m.REST.PreProxy, &mod.REST.PreProxy},
+				{m.REST.PostProxy, &mod.REST.PostProxy},
+			} {
+				if pair.src != nil {
+					*pair.dest = &renderer.RESTStageConfig{URI: pair.src.URI, Method: pair.src.Method}
+				}
 			}
 		}
 		if m.Redis != nil {
-			mod.Redis = &renderer.RedisConfig{
-				Server:   m.Redis.Server,
-				Port:     m.Redis.Port,
-				Database: m.Redis.Database,
-			}
+			mod.Redis = &renderer.RedisConfig{Server: m.Redis.Server, Port: m.Redis.Port, Database: m.Redis.Database}
 			if m.Redis.PasswordRef != nil {
 				mod.Redis.PasswordRef = &renderer.SecretRef{Name: m.Redis.PasswordRef.Name, Key: m.Redis.PasswordRef.Key}
 			}
@@ -682,57 +516,38 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 		modules = append(modules, mod)
 	}
 
-	// Convert clients
-	var renderClients []renderer.ClientSpec
+	renderClients := make([]renderer.ClientSpec, 0, len(clients))
 	for _, c := range clients {
 		renderClients = append(renderClients, renderer.ClientSpec{
-			Name:      c.Name,
-			IP:        c.Spec.IP,
+			Name: c.Name, IP: c.Spec.IP,
 			SecretRef: renderer.SecretRef{Name: c.Spec.SecretRef.Name, Key: c.Spec.SecretRef.Key},
 			NASType:   c.Spec.NASType,
 		})
 	}
 
-	// Convert policies
-	var renderPolicies []renderer.PolicySpec
+	renderPolicies := make([]renderer.PolicySpec, 0, len(policies))
 	for _, p := range policies {
-		policy := renderer.PolicySpec{
-			Name:     p.Name,
-			Stage:    p.Spec.Stage,
-			Priority: p.Spec.Priority,
-		}
+		policy := renderer.PolicySpec{Name: p.Name, Stage: p.Spec.Stage, Priority: p.Spec.Priority}
 		if p.Spec.Match != nil {
 			policy.Match = &renderer.PolicyMatch{}
 			for _, leaf := range p.Spec.Match.All {
-				policy.Match.All = append(policy.Match.All, renderer.MatchLeaf{
-					Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value,
-				})
+				policy.Match.All = append(policy.Match.All, renderer.MatchLeaf{Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value})
 			}
 			for _, leaf := range p.Spec.Match.Any {
-				policy.Match.Any = append(policy.Match.Any, renderer.MatchLeaf{
-					Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value,
-				})
+				policy.Match.Any = append(policy.Match.Any, renderer.MatchLeaf{Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value})
 			}
 			for _, leaf := range p.Spec.Match.None {
-				policy.Match.None = append(policy.Match.None, renderer.MatchLeaf{
-					Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value,
-				})
+				policy.Match.None = append(policy.Match.None, renderer.MatchLeaf{Attribute: leaf.Attribute, Operator: leaf.Operator, Value: leaf.Value})
 			}
 		}
 		for _, a := range p.Spec.Actions {
-			policy.Actions = append(policy.Actions, renderer.PolicyAction{
-				Type: a.Type, Module: a.Module, Attribute: a.Attribute, Value: a.Value,
-			})
+			policy.Actions = append(policy.Actions, renderer.PolicyAction{Type: a.Type, Module: a.Module, Attribute: a.Attribute, Value: a.Value})
 		}
 		renderPolicies = append(renderPolicies, policy)
 	}
 
 	return renderer.RenderContext{
-		Cluster: renderer.ClusterSpec{
-			Replicas: cluster.Spec.Replicas,
-			Image:    cluster.Spec.Image,
-			Modules:  modules,
-		},
+		Cluster:  renderer.ClusterSpec{Replicas: cluster.Spec.Replicas, Image: cluster.Spec.Image, Modules: modules},
 		Clients:  renderClients,
 		Policies: renderPolicies,
 	}
@@ -746,7 +561,6 @@ func isInvalidError(err error) bool {
 	return false
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *RadiusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&radiusv1alpha1.RadiusCluster{}).
@@ -759,7 +573,6 @@ func (r *RadiusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-// enqueueOwningCluster maps a RadiusClient or RadiusPolicy to its owning RadiusCluster.
 func enqueueOwningCluster(ctx context.Context, obj client.Object) []reconcile.Request {
 	var clusterRef string
 	switch o := obj.(type) {
@@ -773,10 +586,5 @@ func enqueueOwningCluster(ctx context.Context, obj client.Object) []reconcile.Re
 	if clusterRef == "" {
 		return nil
 	}
-	return []reconcile.Request{{
-		NamespacedName: types.NamespacedName{
-			Namespace: obj.GetNamespace(),
-			Name:      clusterRef,
-		},
-	}}
+	return []reconcile.Request{{NamespacedName: types.NamespacedName{Namespace: obj.GetNamespace(), Name: clusterRef}}}
 }

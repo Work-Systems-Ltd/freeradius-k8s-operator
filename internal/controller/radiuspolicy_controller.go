@@ -17,27 +17,15 @@ import (
 	"github.com/example/freeradius-operator/internal/status"
 )
 
-// validStages is the set of allowed FreeRADIUS processing stages.
 var validStages = map[string]bool{
-	"authorize":    true,
-	"authenticate": true,
-	"preacct":      true,
-	"accounting":   true,
-	"post-auth":    true,
-	"pre-proxy":    true,
-	"post-proxy":   true,
-	"session":      true,
+	"authorize": true, "authenticate": true, "preacct": true, "accounting": true,
+	"post-auth": true, "pre-proxy": true, "post-proxy": true, "session": true,
 }
 
-// validActionTypes is the set of allowed policy action types.
 var validActionTypes = map[string]bool{
-	"set":    true,
-	"call":   true,
-	"reject": true,
-	"accept": true,
+	"set": true, "call": true, "reject": true, "accept": true,
 }
 
-// RadiusPolicyReconciler reconciles a RadiusPolicy object.
 type RadiusPolicyReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
@@ -53,12 +41,10 @@ func (r *RadiusPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 	result := "success"
 
 	defer func() {
-		duration := time.Since(start).Seconds()
 		metrics.ReconcileTotal.WithLabelValues(req.Namespace, req.Name, "RadiusPolicy", result).Inc()
-		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusPolicy").Observe(duration)
+		metrics.ReconcileDuration.WithLabelValues(req.Namespace, req.Name, "RadiusPolicy").Observe(time.Since(start).Seconds())
 	}()
 
-	// Fetch the RadiusPolicy
 	policy := &radiusv1alpha1.RadiusPolicy{}
 	if err := r.Get(ctx, req.NamespacedName, policy); err != nil {
 		if errors.IsNotFound(err) {
@@ -68,13 +54,9 @@ func (r *RadiusPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, err
 	}
 
-	// Validate stage
 	if !validStages[policy.Spec.Stage] {
 		logger.Info("invalid stage value", "stage", policy.Spec.Stage)
-		if statusErr := r.Status.SetPolicyInvalid(ctx, policy, true, "InvalidStage",
-			fmt.Sprintf("unrecognized stage %q", policy.Spec.Stage)); statusErr != nil {
-			logger.Error(statusErr, "unable to set Invalid status")
-		}
+		_ = r.Status.SetPolicyInvalid(ctx, policy, true, "InvalidStage", fmt.Sprintf("unrecognized stage %q", policy.Spec.Stage))
 		if err := r.Get(ctx, req.NamespacedName, policy); err == nil {
 			_ = r.Status.SetPolicyReady(ctx, policy, false, "InvalidStage", "Invalid stage value")
 		}
@@ -82,14 +64,10 @@ func (r *RadiusPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, nil
 	}
 
-	// Validate action types
 	for _, action := range policy.Spec.Actions {
 		if !validActionTypes[action.Type] {
 			logger.Info("invalid action type", "actionType", action.Type)
-			if statusErr := r.Status.SetPolicyInvalid(ctx, policy, true, "InvalidActionType",
-				fmt.Sprintf("unrecognized action type %q", action.Type)); statusErr != nil {
-				logger.Error(statusErr, "unable to set Invalid status")
-			}
+			_ = r.Status.SetPolicyInvalid(ctx, policy, true, "InvalidActionType", fmt.Sprintf("unrecognized action type %q", action.Type))
 			if err := r.Get(ctx, req.NamespacedName, policy); err == nil {
 				_ = r.Status.SetPolicyReady(ctx, policy, false, "InvalidActionType", "Invalid action type")
 			}
@@ -98,16 +76,12 @@ func (r *RadiusPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		}
 	}
 
-	// Validate clusterRef exists
 	cluster := &radiusv1alpha1.RadiusCluster{}
-	clusterKey := types.NamespacedName{Namespace: req.Namespace, Name: policy.Spec.ClusterRef}
-	if err := r.Get(ctx, clusterKey, cluster); err != nil {
+	if err := r.Get(ctx, types.NamespacedName{Namespace: req.Namespace, Name: policy.Spec.ClusterRef}, cluster); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("clusterRef not found", "clusterRef", policy.Spec.ClusterRef)
-			if statusErr := r.Status.SetPolicyInvalid(ctx, policy, true, "ClusterNotFound",
-				fmt.Sprintf("RadiusCluster %q not found in namespace %q", policy.Spec.ClusterRef, req.Namespace)); statusErr != nil {
-				logger.Error(statusErr, "unable to set Invalid status")
-			}
+			_ = r.Status.SetPolicyInvalid(ctx, policy, true, "ClusterNotFound",
+				fmt.Sprintf("RadiusCluster %q not found in namespace %q", policy.Spec.ClusterRef, req.Namespace))
 			if err := r.Get(ctx, req.NamespacedName, policy); err == nil {
 				_ = r.Status.SetPolicyReady(ctx, policy, false, "ClusterNotFound", "Waiting for RadiusCluster")
 			}
@@ -118,23 +92,15 @@ func (r *RadiusPolicyReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{}, fmt.Errorf("fetching RadiusCluster %q: %w", policy.Spec.ClusterRef, err)
 	}
 
-	// All valid — set Ready and clear Invalid
-	if statusErr := r.Status.SetPolicyReady(ctx, policy, true, "Valid", "RadiusPolicy is valid"); statusErr != nil {
-		logger.Error(statusErr, "unable to set Ready status")
-	}
+	_ = r.Status.SetPolicyReady(ctx, policy, true, "Valid", "RadiusPolicy is valid")
 	if err := r.Get(ctx, req.NamespacedName, policy); err == nil {
-		if statusErr := r.Status.SetPolicyInvalid(ctx, policy, false, "Valid", "RadiusPolicy is valid"); statusErr != nil {
-			logger.Error(statusErr, "unable to clear Invalid status")
-		}
+		_ = r.Status.SetPolicyInvalid(ctx, policy, false, "Valid", "RadiusPolicy is valid")
 	}
 
 	logger.Info("reconciliation complete")
 	return ctrl.Result{}, nil
 }
 
-// SetupWithManager sets up the controller with the Manager.
 func (r *RadiusPolicyReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
-		For(&radiusv1alpha1.RadiusPolicy{}).
-		Complete(r)
+	return ctrl.NewControllerManagedBy(mgr).For(&radiusv1alpha1.RadiusPolicy{}).Complete(r)
 }

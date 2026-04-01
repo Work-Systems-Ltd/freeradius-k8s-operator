@@ -1,4 +1,3 @@
-// Package v1alpha1 contains API Schema definitions for the radius.operator.io v1alpha1 API group.
 // +groupName=radius.operator.io
 package v1alpha1
 
@@ -8,14 +7,9 @@ import (
 )
 
 var (
-	// GroupVersion is group version used to register these objects.
-	GroupVersion = schema.GroupVersion{Group: "radius.operator.io", Version: "v1alpha1"}
-
-	// SchemeBuilder is used to add functions to this group's scheme.
+	GroupVersion  = schema.GroupVersion{Group: "radius.operator.io", Version: "v1alpha1"}
 	SchemeBuilder = &scheme.Builder{GroupVersion: GroupVersion}
-
-	// AddToScheme adds the types in this group-version to the given scheme.
-	AddToScheme = SchemeBuilder.AddToScheme
+	AddToScheme   = SchemeBuilder.AddToScheme
 )
 
 func init() {
