@@ -2,7 +2,10 @@ package controller
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
+	rbacv1 "k8s.io/api/rbac/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,9 +35,10 @@ import (
 
 type RadiusClusterReconciler struct {
 	client.Client
-	Scheme   *runtime.Scheme
-	Renderer renderer.ConfigRenderer
-	Status   *status.StatusReporter
+	Scheme        *runtime.Scheme
+	Renderer      renderer.ConfigRenderer
+	Status        *status.StatusReporter
+	OperatorImage string // Image used for the render-clients init container
 }
 
 // +kubebuilder:rbac:groups=radius.operator.io,resources=radiusclusters,verbs=get;list;watch;create;update;patch;delete
@@ -48,6 +53,9 @@ type RadiusClusterReconciler struct {
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=roles,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=rolebindings,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -116,9 +124,12 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, fmt.Errorf("rendering config: %w", err)
 	}
 
+	configHash := computeConfigHash(configFiles, matchingClients)
+
 	for _, reconcileFn := range []func() error{
+		func() error { return r.reconcileRBAC(ctx, cluster) },
 		func() error { return r.reconcileConfigMap(ctx, cluster, configFiles) },
-		func() error { return r.reconcileDeployment(ctx, cluster, secretRefs) },
+		func() error { return r.reconcileDeployment(ctx, cluster, secretRefs, configHash) },
 		func() error { return r.reconcileService(ctx, cluster) },
 		func() error { return r.reconcileHPA(ctx, cluster) },
 		func() error { return r.reconcilePDB(ctx, cluster) },
@@ -202,7 +213,7 @@ func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluste
 	return err
 }
 
-func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef) error {
+func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef, configHash string) error {
 	deploy := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + deploymentSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		if err := ctrl.SetControllerReference(cluster, deploy, r.Scheme); err != nil {
@@ -211,6 +222,11 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 		labels := podLabels(cluster.Name)
 		maxUnavailable := intstr.FromInt(0)
 		maxSurge := intstr.FromInt(1)
+
+		// Config hash annotation triggers rolling restart when config or clients change
+		annotations := map[string]string{
+			"radius.operator.io/config-hash": configHash,
+		}
 
 		deploy.Spec = appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: labels},
@@ -222,7 +238,7 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 				},
 			},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labels},
+				ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: annotations},
 				Spec:       r.buildPodSpec(cluster, secretRefs),
 			},
 		}
@@ -275,6 +291,27 @@ for f in *; do
 done`},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "freeradius-config", MountPath: "/config-flat", ReadOnly: true},
+			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
+		},
+		SecurityContext: restrictedSC,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
+		},
+	}
+
+	// Init container that renders clients.conf by querying RadiusClient CRs from the API.
+	// This avoids the ConfigMap 1MB size limit for large client lists (10K+ NAS devices).
+	clientInitContainer := corev1.Container{
+		Name:  "render-clients",
+		Image: r.OperatorImage,
+		Command: []string{"/operator",
+			"--mode=render-clients",
+			"--cluster-name=" + cluster.Name,
+			"--namespace=" + cluster.Namespace,
+			"--output=/etc/freeradius/clients.conf",
+		},
+		VolumeMounts: []corev1.VolumeMount{
 			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
 		},
 		SecurityContext: restrictedSC,
@@ -353,7 +390,8 @@ done`},
 		},
 		Affinity:                  affinity,
 		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,
-		InitContainers:            []corev1.Container{initContainer},
+		ServiceAccountName:        cluster.Name + serviceAccountSuffix,
+		InitContainers:            []corev1.Container{initContainer, clientInitContainer},
 		Containers:                []corev1.Container{mainContainer},
 		Volumes:                   volumes,
 	}
@@ -489,6 +527,46 @@ func (r *RadiusClusterReconciler) reconcilePDB(ctx context.Context, cluster *rad
 	return err
 }
 
+// reconcileRBAC creates a ServiceAccount, Role, and RoleBinding so the
+// render-clients init container can read RadiusClient CRs from the API.
+func (r *RadiusClusterReconciler) reconcileRBAC(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
+	// ServiceAccount
+	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + serviceAccountSuffix, Namespace: cluster.Namespace}}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
+		return ctrl.SetControllerReference(cluster, sa, r.Scheme)
+	}); err != nil {
+		return err
+	}
+
+	// Role: read RadiusClients
+	role := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + roleSuffix, Namespace: cluster.Namespace}}
+	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, role, func() error {
+		if err := ctrl.SetControllerReference(cluster, role, r.Scheme); err != nil {
+			return err
+		}
+		role.Rules = []rbacv1.PolicyRule{{
+			APIGroups: []string{"radius.operator.io"},
+			Resources: []string{"radiusclients"},
+			Verbs:     []string{"get", "list", "watch"},
+		}}
+		return nil
+	}); err != nil {
+		return err
+	}
+
+	// RoleBinding
+	rb := &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + roleBindingSuffix, Namespace: cluster.Namespace}}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, rb, func() error {
+		if err := ctrl.SetControllerReference(cluster, rb, r.Scheme); err != nil {
+			return err
+		}
+		rb.RoleRef = rbacv1.RoleRef{APIGroup: "rbac.authorization.k8s.io", Kind: "Role", Name: role.Name}
+		rb.Subjects = []rbacv1.Subject{{Kind: "ServiceAccount", Name: sa.Name, Namespace: cluster.Namespace}}
+		return nil
+	})
+	return err
+}
+
 func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespace, clusterName string) int32 {
 	podList := &corev1.PodList{}
 	if err := r.List(ctx, podList, client.InNamespace(namespace), client.MatchingLabels(podLabels(clusterName))); err != nil {
@@ -501,6 +579,34 @@ func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespac
 		}
 	}
 	return total
+}
+
+// computeConfigHash produces a hash of all rendered config files and client specs.
+// When this hash changes, the pod template annotation changes, triggering a rolling restart.
+func computeConfigHash(files renderer.ConfigFiles, clients []radiusv1alpha1.RadiusClient) string {
+	h := sha256.New()
+
+	// Hash rendered config files in deterministic order
+	keys := make([]string, 0, len(files))
+	for k := range files {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	for _, k := range keys {
+		h.Write([]byte(k))
+		h.Write([]byte(files[k]))
+	}
+
+	// Hash client specs (these are rendered by the init container, not in ConfigMap)
+	for _, c := range clients {
+		h.Write([]byte(c.Name))
+		h.Write([]byte(c.Spec.IP))
+		h.Write([]byte(c.Spec.SecretRef.Name))
+		h.Write([]byte(c.Spec.SecretRef.Key))
+		h.Write([]byte(c.Spec.NASType))
+	}
+
+	return hex.EncodeToString(h.Sum(nil))
 }
 
 func initContainerResources(cluster *radiusv1alpha1.RadiusCluster) corev1.ResourceRequirements {
