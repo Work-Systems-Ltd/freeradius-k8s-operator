@@ -228,7 +228,7 @@ kubectl get crds | grep radius.operator.io
 
 If you've worked through this guide and are still stuck:
 
-1. Check the [GitHub Issues](https://github.com/tbotnz/freeradius-k8s-operator/issues) for similar problems
+1. Check the [GitHub Issues](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/issues) for similar problems
 2. Open a new issue with:
    - Operator version / commit hash
    - Kubernetes version (`kubectl version`)

@@ -11,7 +11,7 @@ Declarative RADIUS infrastructure on Kubernetes. Define clusters, clients, and p
 {: .fs-6 .fw-300 }
 
 [Get Started](/freeradius-k8s-operator/getting-started/){: .btn .btn-primary .fs-5 .mb-4 .mb-md-0 .mr-2 }
-[View on GitHub](https://github.com/tbotnz/freeradius-k8s-operator){: .btn .fs-5 .mb-4 .mb-md-0 }
+[View on GitHub](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator){: .btn .fs-5 .mb-4 .mb-md-0 }
 
 ---
 
@@ -140,4 +140,4 @@ This project is in **alpha** (`v1alpha1`). The API surface is stabilizing but ma
 
 ## Contributing
 
-Contributions are welcome! See the [Development](/freeradius-k8s-operator/development/) page and [CONTRIBUTING.md](https://github.com/tbotnz/freeradius-k8s-operator/blob/master/CONTRIBUTING.md) for guidelines.
+Contributions are welcome! See the [Development](/freeradius-k8s-operator/development/) page and [CONTRIBUTING.md](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/blob/master/CONTRIBUTING.md) for guidelines.

@@ -10,7 +10,7 @@ Thanks for your interest in contributing! This document covers the basics of how
    git clone https://github.com/<your-username>/freeradius-k8s-operator.git
    cd freeradius-k8s-operator
    ```
-3. Set up your development environment (see [Development docs](https://tbotnz.github.io/freeradius-k8s-operator/development/))
+3. Set up your development environment (see [Development docs](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/development/))
 
 ## Development Workflow
 
@@ -79,7 +79,7 @@ refactor: extract template helpers into separate file
 
 ## Reporting Issues
 
-Open an issue on [GitHub](https://github.com/tbotnz/freeradius-k8s-operator/issues) with:
+Open an issue on [GitHub](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/issues) with:
 
 - What you expected to happen
 - What actually happened
