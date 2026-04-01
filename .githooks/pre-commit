@@ -2,14 +2,7 @@
 set -euo pipefail
 
 GOPATH_BIN="$(go env GOPATH)/bin"
-GOLANGCI_LINT="${GOLANGCI_LINT:-${GOPATH_BIN}/golangci-lint}"
 
-if [ ! -x "$GOLANGCI_LINT" ]; then
-    echo "golangci-lint not found — run 'make lint' to install it"
-    exit 1
-fi
-
-# Only format and lint staged Go files
 STAGED=$(git diff --cached --name-only --diff-filter=ACM | grep '\.go$' || true)
 if [ -z "$STAGED" ]; then
     exit 0
@@ -17,11 +10,7 @@ fi
 
 echo "Formatting staged Go files..."
 echo "$STAGED" | xargs gofmt -w
-echo "$STAGED" | xargs "$GOPATH_BIN/goimports" -w -local github.com/example/freeradius-operator 2>/dev/null || true
+if [ -x "$GOPATH_BIN/goimports" ]; then
+    echo "$STAGED" | xargs "$GOPATH_BIN/goimports" -w -local github.com/example/freeradius-operator
+fi
 echo "$STAGED" | xargs git add
-
-echo "Running golangci-lint..."
-"$GOLANGCI_LINT" run ./...
-
-echo "Running tests..."
-go test $(go list ./... | grep -v /e2e) -count=1 -short

@@ -13,6 +13,13 @@ import (
 	"github.com/example/freeradius-operator/internal/renderer"
 )
 
+func defaultContainerPorts() []corev1.ContainerPort {
+	return []corev1.ContainerPort{
+		{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
+		{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
+	}
+}
+
 func genSecretRef(t *rapid.T) radiusv1alpha1.SecretRef {
 	return radiusv1alpha1.SecretRef{
 		Name: rapid.StringMatching(`[a-z][a-z0-9]{2,10}`).Draw(t, "secretName"),
@@ -115,7 +122,7 @@ func TestDefaultProbes(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		cluster := genRadiusCluster(t)
 		cluster.Spec.Probes = nil
-		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, nil)
+		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, nil, defaultContainerPorts())
 		require.Len(t, podSpec.Containers, 1)
 		c := podSpec.Containers[0]
 		assert.NotNil(t, c.LivenessProbe)
@@ -131,7 +138,7 @@ func TestCustomProbesOverride(t *testing.T) {
 			InitialDelaySeconds: int32(rapid.IntRange(1, 60).Draw(t, "delay")),
 		}
 		cluster.Spec.Probes = &radiusv1alpha1.ProbesConfig{Liveness: custom}
-		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, nil)
+		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, nil, defaultContainerPorts())
 		assert.Equal(t, custom, podSpec.Containers[0].LivenessProbe)
 		assert.NotNil(t, podSpec.Containers[0].ReadinessProbe)
 	})
@@ -151,7 +158,7 @@ func TestSecretVolumeMounts(t *testing.T) {
 			seen[name] = true
 			refs = append(refs, renderer.SecretRef{Name: name, Key: "key"})
 		}
-		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, refs)
+		podSpec := (&RadiusClusterReconciler{}).buildPodSpec(cluster, refs, defaultContainerPorts())
 		for _, ref := range refs {
 			volName := "secret-" + ref.Name
 			var volFound, mountFound bool

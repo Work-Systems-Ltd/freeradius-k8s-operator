@@ -3,7 +3,7 @@
 [![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)](https://go.dev)
 [![Kubernetes](https://img.shields.io/badge/Kubernetes-1.28+-326CE5?logo=kubernetes&logoColor=white)](https://kubernetes.io)
 [![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![Docs](https://img.shields.io/badge/docs-GitHub_Pages-blue?logo=github)](https://tbotnz.github.io/freeradius-k8s-operator/)
+[![Docs](https://img.shields.io/badge/docs-GitHub_Pages-blue?logo=github)](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/)
 
 A Kubernetes operator for managing FreeRADIUS deployments, clients, and policies via custom resources.
 
@@ -194,16 +194,16 @@ curl localhost:8080/metrics | grep freeradius_operator
 
 ## Documentation
 
-Full documentation is available at **[tbotnz.github.io/freeradius-k8s-operator](https://tbotnz.github.io/freeradius-k8s-operator/)**, including:
+Full documentation is available at **[Work-Systems-Ltd.github.io/freeradius-k8s-operator](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/)**, including:
 
-- [Getting Started](https://tbotnz.github.io/freeradius-k8s-operator/getting-started/) — install and deploy your first cluster
-- [Concepts](https://tbotnz.github.io/freeradius-k8s-operator/concepts/) — RADIUS fundamentals for Kubernetes engineers
-- [Architecture](https://tbotnz.github.io/freeradius-k8s-operator/architecture/) — how the operator works under the hood
-- [CRD Reference](https://tbotnz.github.io/freeradius-k8s-operator/reference/radiuscluster/) — full spec for all three custom resources
-- [Guides](https://tbotnz.github.io/freeradius-k8s-operator/guides/modules/) — modules, autoscaling, TLS, security, observability, upgrading
-- [Examples](https://tbotnz.github.io/freeradius-k8s-operator/examples/) — complete deployment scenarios (campus WiFi, ISP, VPN)
-- [Troubleshooting](https://tbotnz.github.io/freeradius-k8s-operator/troubleshooting/) — common issues and fixes
-- [FAQ](https://tbotnz.github.io/freeradius-k8s-operator/faq/)
+- [Getting Started](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/getting-started/) — install and deploy your first cluster
+- [Concepts](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/concepts/) — RADIUS fundamentals for Kubernetes engineers
+- [Architecture](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/architecture/) — how the operator works under the hood
+- [CRD Reference](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/reference/radiuscluster/) — full spec for all three custom resources
+- [Guides](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/guides/modules/) — modules, autoscaling, TLS, security, observability, upgrading
+- [Examples](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/examples/) — complete deployment scenarios (campus WiFi, ISP, VPN)
+- [Troubleshooting](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/troubleshooting/) — common issues and fixes
+- [FAQ](https://Work-Systems-Ltd.github.io/freeradius-k8s-operator/faq/)
 
 ## Development
 
