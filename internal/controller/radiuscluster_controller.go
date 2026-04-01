@@ -129,9 +129,8 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	for _, reconcileFn := range []func() error{
 		func() error { return r.reconcileRBAC(ctx, cluster) },
 		func() error { return r.reconcileConfigMap(ctx, cluster, configFiles) },
-		func() error { return r.reconcileDeployment(ctx, cluster, secretRefs, configHash) },
-		func() error { return r.reconcileService(ctx, cluster) },
-		func() error { return r.reconcileHPA(ctx, cluster) },
+		func() error { return r.reconcileDeploymentsAndServices(ctx, cluster, secretRefs, configHash) },
+		func() error { return r.reconcileHPAs(ctx, cluster) },
 		func() error { return r.reconcilePDB(ctx, cluster) },
 	} {
 		if err := reconcileFn(); err != nil {
@@ -213,17 +212,130 @@ func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluste
 	return err
 }
 
-func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef, configHash string) error {
-	deploy := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + deploymentSuffix, Namespace: cluster.Namespace}}
+// endpointDef describes a single RADIUS endpoint (auth, acct, or coa) for
+// split-mode deployment. In combined mode a single endpointDef covers all ports.
+type endpointDef struct {
+	role      string // "auth", "acct", "coa", or "" for combined
+	suffix    string
+	ports     []corev1.ServicePort
+	cPorts    []corev1.ContainerPort
+	replicas  int32
+	autoscale *radiusv1alpha1.AutoscalingConfig
+	svcCfg    *radiusv1alpha1.ServiceConfig
+}
+
+func (r *RadiusClusterReconciler) reconcileDeploymentsAndServices(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef, configHash string) error {
+	endpoints := r.buildEndpoints(cluster)
+	for _, ep := range endpoints {
+		if err := r.reconcileOneDeployment(ctx, cluster, secretRefs, configHash, ep); err != nil {
+			return err
+		}
+		if err := r.reconcileOneService(ctx, cluster, ep); err != nil {
+			return err
+		}
+	}
+	// Clean up stale resources from the other mode
+	return r.cleanupStaleResources(ctx, cluster)
+}
+
+func (r *RadiusClusterReconciler) buildEndpoints(cluster *radiusv1alpha1.RadiusCluster) []endpointDef {
+	coaPort := int32(3799)
+	if cluster.Spec.CoA != nil && cluster.Spec.CoA.Port > 0 {
+		coaPort = cluster.Spec.CoA.Port
+	}
+
+	if cluster.Spec.Services == nil {
+		// Combined mode: single Deployment + Service with all ports
+		ports := []corev1.ServicePort{
+			{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP},
+			{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP},
+		}
+		cPorts := []corev1.ContainerPort{
+			{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
+			{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
+		}
+		if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
+			ports = append(ports, corev1.ServicePort{Name: "coa", Port: coaPort, TargetPort: intstr.FromInt(int(coaPort)), Protocol: corev1.ProtocolUDP})
+			cPorts = append(cPorts, corev1.ContainerPort{Name: "coa", ContainerPort: coaPort, Protocol: corev1.ProtocolUDP})
+		}
+		return []endpointDef{{
+			suffix: deploymentSuffix, ports: ports, cPorts: cPorts,
+			replicas: cluster.Spec.Replicas, autoscale: cluster.Spec.Autoscaling,
+			svcCfg: cluster.Spec.Service,
+		}}
+	}
+
+	// Split mode: independent Deployments per function
+	var eps []endpointDef
+	svcs := cluster.Spec.Services
+
+	if svcs.Auth != nil {
+		eps = append(eps, endpointDef{
+			role: "auth", suffix: "-freeradius-auth",
+			ports:    []corev1.ServicePort{{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP}},
+			cPorts:   []corev1.ContainerPort{{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP}},
+			replicas: svcs.Auth.Replicas, autoscale: svcs.Auth.Autoscaling,
+			svcCfg: &svcs.Auth.ServiceConfig,
+		})
+	}
+	if svcs.Accounting != nil {
+		eps = append(eps, endpointDef{
+			role: "acct", suffix: "-freeradius-acct",
+			ports:    []corev1.ServicePort{{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP}},
+			cPorts:   []corev1.ContainerPort{{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP}},
+			replicas: svcs.Accounting.Replicas, autoscale: svcs.Accounting.Autoscaling,
+			svcCfg: &svcs.Accounting.ServiceConfig,
+		})
+	}
+	if svcs.CoA != nil {
+		eps = append(eps, endpointDef{
+			role: "coa", suffix: "-freeradius-coa",
+			ports:    []corev1.ServicePort{{Name: "coa", Port: coaPort, TargetPort: intstr.FromInt(int(coaPort)), Protocol: corev1.ProtocolUDP}},
+			cPorts:   []corev1.ContainerPort{{Name: "coa", ContainerPort: coaPort, Protocol: corev1.ProtocolUDP}},
+			replicas: svcs.CoA.Replicas, autoscale: svcs.CoA.Autoscaling,
+			svcCfg: &svcs.CoA.ServiceConfig,
+		})
+	}
+	return eps
+}
+
+func (r *RadiusClusterReconciler) cleanupStaleResources(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
+	// When switching between combined and split mode, delete resources from the other mode
+	var staleSuffixes []string
+	if cluster.Spec.Services != nil {
+		staleSuffixes = []string{deploymentSuffix} // combined-mode resources
+	} else {
+		staleSuffixes = []string{"-freeradius-auth", "-freeradius-acct", "-freeradius-coa"} // split-mode resources
+	}
+
+	for _, suffix := range staleSuffixes {
+		name := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + suffix}
+		deploy := &appsv1.Deployment{}
+		if err := r.Get(ctx, name, deploy); err == nil {
+			if err := r.Delete(ctx, deploy); err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+		}
+		svc := &corev1.Service{}
+		if err := r.Get(ctx, name, svc); err == nil {
+			if err := r.Delete(ctx, svc); err != nil && !errors.IsNotFound(err) {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (r *RadiusClusterReconciler) reconcileOneDeployment(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef, configHash string, ep endpointDef) error {
+	deploy := &appsv1.Deployment{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + ep.suffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, deploy, func() error {
 		if err := ctrl.SetControllerReference(cluster, deploy, r.Scheme); err != nil {
 			return err
 		}
-		labels := podLabels(cluster.Name)
+		labels := endpointLabels(cluster.Name, ep.role)
 		maxUnavailable := intstr.FromInt(0)
 		maxSurge := intstr.FromInt(1)
 
-		// Config hash annotation triggers rolling restart when config or clients change
 		annotations := map[string]string{
 			"radius.operator.io/config-hash": configHash,
 		}
@@ -239,12 +351,15 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: labels, Annotations: annotations},
-				Spec:       r.buildPodSpec(cluster, secretRefs),
+				Spec:       r.buildPodSpec(cluster, secretRefs, ep.cPorts),
 			},
 		}
 
-		if cluster.Spec.Autoscaling == nil || !cluster.Spec.Autoscaling.Enabled {
-			replicas := cluster.Spec.Replicas
+		if ep.autoscale == nil || !ep.autoscale.Enabled {
+			replicas := ep.replicas
+			if replicas < 1 {
+				replicas = 1
+			}
 			deploy.Spec.Replicas = &replicas
 		}
 		return nil
@@ -252,7 +367,7 @@ func (r *RadiusClusterReconciler) reconcileDeployment(ctx context.Context, clust
 	return err
 }
 
-func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef) corev1.PodSpec {
+func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusCluster, secretRefs []renderer.SecretRef, containerPorts []corev1.ContainerPort) corev1.PodSpec {
 	configMapName := cluster.Name + configMapSuffix
 	falseVal := false
 	trueVal := true
@@ -337,20 +452,6 @@ done`},
 		}
 	}
 
-	containerPorts := []corev1.ContainerPort{
-		{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
-		{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
-	}
-	if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
-		coaPort := int32(3799)
-		if cluster.Spec.CoA.Port > 0 {
-			coaPort = cluster.Spec.CoA.Port
-		}
-		containerPorts = append(containerPorts, corev1.ContainerPort{
-			Name: "coa", ContainerPort: coaPort, Protocol: corev1.ProtocolUDP,
-		})
-	}
-
 	mainContainer := corev1.Container{
 		Name:            "freeradius",
 		Image:           cluster.Spec.Image,
@@ -409,60 +510,54 @@ func defaultProbes() (*corev1.Probe, *corev1.Probe) {
 		}
 }
 
-func (r *RadiusClusterReconciler) reconcileService(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
-	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + serviceSuffix, Namespace: cluster.Namespace}}
+func (r *RadiusClusterReconciler) reconcileOneService(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, ep endpointDef) error {
+	svc := &corev1.Service{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + ep.suffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, svc, func() error {
 		if err := ctrl.SetControllerReference(cluster, svc, r.Scheme); err != nil {
 			return err
 		}
-		labels := podLabels(cluster.Name)
 
 		svcType := corev1.ServiceTypeClusterIP
-		if cluster.Spec.Service != nil && cluster.Spec.Service.Type != "" {
-			svcType = cluster.Spec.Service.Type
-		}
-
-		ports := []corev1.ServicePort{
-			{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP},
-			{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP},
-		}
-		if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
-			coaPort := int32(3799)
-			if cluster.Spec.CoA.Port > 0 {
-				coaPort = cluster.Spec.CoA.Port
-			}
-			ports = append(ports, corev1.ServicePort{
-				Name: "coa", Port: coaPort, TargetPort: intstr.FromInt(int(coaPort)), Protocol: corev1.ProtocolUDP,
-			})
+		if ep.svcCfg != nil && ep.svcCfg.Type != "" {
+			svcType = ep.svcCfg.Type
 		}
 
 		svc.Spec = corev1.ServiceSpec{
 			Type:     svcType,
-			Selector: labels,
-			Ports:    ports,
+			Selector: endpointLabels(cluster.Name, ep.role),
+			Ports:    ep.ports,
 		}
 
-		if cluster.Spec.Service != nil {
-			if cluster.Spec.Service.LoadBalancerIP != "" {
-				svc.Spec.LoadBalancerIP = cluster.Spec.Service.LoadBalancerIP
+		if ep.svcCfg != nil {
+			if ep.svcCfg.LoadBalancerIP != "" {
+				svc.Spec.LoadBalancerIP = ep.svcCfg.LoadBalancerIP
 			}
-			if cluster.Spec.Service.ExternalTrafficPolicy != "" {
-				svc.Spec.ExternalTrafficPolicy = cluster.Spec.Service.ExternalTrafficPolicy
+			if ep.svcCfg.ExternalTrafficPolicy != "" {
+				svc.Spec.ExternalTrafficPolicy = ep.svcCfg.ExternalTrafficPolicy
 			}
-			if len(cluster.Spec.Service.Annotations) > 0 {
-				svc.Annotations = cluster.Spec.Service.Annotations
+			if len(ep.svcCfg.Annotations) > 0 {
+				svc.Annotations = ep.svcCfg.Annotations
 			}
 		}
-
 		return nil
 	})
 	return err
 }
 
-func (r *RadiusClusterReconciler) reconcileHPA(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
-	hpaName := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + hpaSuffix}
+func (r *RadiusClusterReconciler) reconcileHPAs(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
+	endpoints := r.buildEndpoints(cluster)
+	for _, ep := range endpoints {
+		if err := r.reconcileOneHPA(ctx, cluster, ep); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
-	if cluster.Spec.Autoscaling == nil || !cluster.Spec.Autoscaling.Enabled {
+func (r *RadiusClusterReconciler) reconcileOneHPA(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster, ep endpointDef) error {
+	hpaName := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + ep.suffix}
+
+	if ep.autoscale == nil || !ep.autoscale.Enabled {
 		existing := &autoscalingv2.HorizontalPodAutoscaler{}
 		if err := r.Get(ctx, hpaName, existing); err == nil {
 			return r.Delete(ctx, existing)
@@ -470,22 +565,22 @@ func (r *RadiusClusterReconciler) reconcileHPA(ctx context.Context, cluster *rad
 		return nil
 	}
 
-	hpa := &autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + hpaSuffix, Namespace: cluster.Namespace}}
+	hpa := &autoscalingv2.HorizontalPodAutoscaler{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + ep.suffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, hpa, func() error {
 		if err := ctrl.SetControllerReference(cluster, hpa, r.Scheme); err != nil {
 			return err
 		}
 		hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: "apps/v1", Kind: "Deployment", Name: cluster.Name + deploymentSuffix,
+				APIVersion: "apps/v1", Kind: "Deployment", Name: cluster.Name + ep.suffix,
 			},
-			MinReplicas: &cluster.Spec.Autoscaling.MinReplicas,
-			MaxReplicas: cluster.Spec.Autoscaling.MaxReplicas,
+			MinReplicas: &ep.autoscale.MinReplicas,
+			MaxReplicas: ep.autoscale.MaxReplicas,
 			Metrics: []autoscalingv2.MetricSpec{{
 				Type: autoscalingv2.ResourceMetricSourceType,
 				Resource: &autoscalingv2.ResourceMetricSource{
 					Name:   corev1.ResourceCPU,
-					Target: autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType, AverageUtilization: &cluster.Spec.Autoscaling.TargetCPUUtilizationPercentage},
+					Target: autoscalingv2.MetricTarget{Type: autoscalingv2.UtilizationMetricType, AverageUtilization: &ep.autoscale.TargetCPUUtilizationPercentage},
 				},
 			}},
 		}
@@ -626,6 +721,17 @@ func podLabels(clusterName string) map[string]string {
 		"app.kubernetes.io/instance":   clusterName,
 		"app.kubernetes.io/managed-by": "freeradius-operator",
 	}
+}
+
+// endpointLabels returns pod labels for a specific endpoint role.
+// In combined mode (role=""), returns the base podLabels.
+// In split mode, adds a role label so Services can select the right Deployment.
+func endpointLabels(clusterName, role string) map[string]string {
+	labels := podLabels(clusterName)
+	if role != "" {
+		labels["radius.operator.io/role"] = role
+	}
+	return labels
 }
 
 func collectSecretRefs(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1alpha1.RadiusClient) []renderer.SecretRef {
