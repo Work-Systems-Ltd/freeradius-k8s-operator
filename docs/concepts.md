@@ -23,17 +23,17 @@ RADIUS fundamentals for Kubernetes engineers — and Kubernetes fundamentals for
 
 When a user plugs into a switch port, joins a WiFi network, or connects to a VPN, the network device (called a **NAS** — Network Access Server) doesn't decide on its own whether to allow access. Instead, it asks a RADIUS server.
 
-```
-User Device          NAS (Switch/AP/VPN)         RADIUS Server
-    │                       │                         │
-    │── Connect ──────────►│                         │
-    │                       │── Access-Request ──────►│
-    │                       │                         │ (check credentials,
-    │                       │                         │  look up policies)
-    │                       │◄── Access-Accept ───────│
-    │                       │    + VLAN=100            │
-    │◄── Connected ─────────│    + bandwidth=50M       │
-    │    (VLAN 100)         │                         │
+```mermaid
+sequenceDiagram
+    participant User as User Device
+    participant NAS as NAS (Switch/AP/VPN)
+    participant RADIUS as RADIUS Server
+
+    User->>NAS: Connect
+    NAS->>RADIUS: Access-Request
+    Note right of RADIUS: Check credentials,<br/>look up policies
+    RADIUS->>NAS: Access-Accept<br/>+ VLAN=100<br/>+ bandwidth=50M
+    NAS->>User: Connected (VLAN 100)
 ```
 
 ### The AAA Model
@@ -62,27 +62,18 @@ User Device          NAS (Switch/AP/VPN)         RADIUS Server
 
 FreeRADIUS processes each RADIUS packet through a series of **stages**. Each stage runs a list of modules and policy rules in order.
 
-```
-Access-Request arrives
-        │
-        ▼
-┌─── authorize ───┐     "Look up the user, decide how to authenticate"
-│  sql             │     - Query database for user record
-│  ldap            │     - Check LDAP group membership
-│  policy rules    │     - Reject banned domains, set Auth-Type
-└────────┬────────┘
-         ▼
-┌── authenticate ──┐     "Verify credentials"
-│  pap / eap / mschap │  - Check password, run EAP handshake
-└────────┬────────┘
-         ▼
-┌─── post-auth ───┐     "User is authenticated — apply authorization"
-│  policy rules    │     - Assign VLAN, set bandwidth limit
-│  sql (log)       │     - Log the auth event
-└────────┬────────┘
-         ▼
-    Access-Accept
-    (with reply attributes)
+```mermaid
+graph TD
+    Req["Access-Request arrives"]
+    Auth["**authorize**\nsql · ldap · policy rules\n\nLook up the user,\ndecide how to authenticate"]
+    Authn["**authenticate**\npap · eap · mschap\n\nVerify credentials"]
+    Post["**post-auth**\npolicy rules · sql log\n\nApply authorization:\nassign VLAN, set bandwidth"]
+    Accept["Access-Accept\n(with reply attributes)"]
+
+    Req --> Auth
+    Auth --> Authn
+    Authn --> Post
+    Post --> Accept
 ```
 
 When you create a `RadiusPolicy`, you're inserting rules into one of these stages. The `priority` field controls where in the stage your rule runs.
@@ -125,11 +116,13 @@ If you're a network engineer new to Kubernetes, here's a translation:
 
 Kubernetes operators work on a **desired state** model. You declare what you want (CRD specs), and the operator continuously works to make reality match:
 
-```
-You apply YAML ──► Operator reads CRDs ──► Operator creates/updates resources
-                          ▲                              │
-                          │                              ▼
-                   Watches for changes ◄──── Kubernetes API Server
+```mermaid
+graph LR
+    Apply["You apply YAML"] --> Read["Operator reads CRDs"]
+    Read --> Create["Operator creates/updates resources"]
+    Create --> API["Kubernetes API Server"]
+    API --> Watch["Watches for changes"]
+    Watch --> Read
 ```
 
 This means:

@@ -21,41 +21,24 @@ How the operator turns custom resources into a running FreeRADIUS deployment.
 
 The operator follows the standard Kubernetes [controller pattern](https://kubernetes.io/docs/concepts/architecture/controller/). Three controllers watch their respective custom resources and coordinate to produce a fully configured FreeRADIUS deployment.
 
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                      Kubernetes API Server                       │
-└──────┬──────────────────┬──────────────────┬────────────────────┘
-       │ watch             │ watch             │ watch
-       ▼                  ▼                  ▼
-┌──────────────┐  ┌──────────────┐  ┌──────────────┐
-│ RadiusCluster │  │ RadiusClient │  │ RadiusPolicy │
-│  Controller   │  │  Controller  │  │  Controller  │
-└──────┬───────┘  └──────┬───────┘  └──────┬───────┘
-       │                  │ enqueue          │ enqueue
-       │                  │ owning cluster   │ owning cluster
-       │                  └──────┬───────────┘
-       │                         │
-       ▼                         ▼
-┌────────────────────────────────────────────┐
-│         RadiusCluster Reconciler           │
-│                                            │
-│  1. List clients & policies (clusterRef)   │
-│  2. Resolve secrets                        │
-│  3. Render configuration                   │
-│  4. Apply ConfigMap + Deployment + Service │
-│  5. Manage HPA (if autoscaling enabled)    │
-│  6. Update status                          │
-└────────────────────────────────────────────┘
-       │
-       ▼
-┌────────────────────────────────────────────┐
-│            Kubernetes Resources             │
-│                                            │
-│  ConfigMap ─── rendered FreeRADIUS config   │
-│  Deployment ── FreeRADIUS pods              │
-│  Service ───── UDP 1812 + 1813             │
-│  HPA ───────── optional autoscaler         │
-└────────────────────────────────────────────┘
+```mermaid
+graph TD
+    API["Kubernetes API Server"]
+
+    API -->|watch| CC["RadiusCluster\nController"]
+    API -->|watch| ClientC["RadiusClient\nController"]
+    API -->|watch| PolicyC["RadiusPolicy\nController"]
+
+    ClientC -->|"enqueue owning cluster"| Reconciler
+    PolicyC -->|"enqueue owning cluster"| Reconciler
+    CC --> Reconciler
+
+    Reconciler["RadiusCluster Reconciler\n\n1. List clients & policies\n2. Resolve secrets\n3. Render configuration\n4. Apply ConfigMap + Deployment + Service\n5. Manage HPA if autoscaling enabled\n6. Update status"]
+
+    Reconciler --> CM["ConfigMap\nrendered FreeRADIUS config"]
+    Reconciler --> Deploy["Deployment\nFreeRADIUS pods"]
+    Reconciler --> Svc["Service\nUDP 1812 + 1813"]
+    Reconciler --> HPA["HPA\noptional autoscaler"]
 ```
 
 ## Controllers

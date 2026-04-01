@@ -311,6 +311,17 @@ table {
   }
 }
 
+// ── Mermaid Diagrams ────────────────────────────────────────────────
+
+.mermaid {
+  background: #1A1A1A;
+  border: 1px solid #2A2A2A;
+  border-radius: var(--ws-radius-lg);
+  padding: 1.5rem;
+  margin: 1.5rem 0;
+  text-align: center;
+}
+
 // ── Smooth transitions ─────────────────────────────────────────────
 
 * {

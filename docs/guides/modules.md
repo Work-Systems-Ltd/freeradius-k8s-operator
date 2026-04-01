@@ -269,11 +269,10 @@ All `credentialsRef` fields follow the same pattern:
 3. The operator mounts the Secret as a read-only volume
 4. The rendered config references the file path — the plaintext value never appears in the ConfigMap
 
-```
-Secret "db-credentials"                Rendered mods-enabled/sql
-┌─────────────────────┐               ┌──────────────────────────────────┐
-│ data:               │    renders    │ sql {                            │
-│   password: ****    │──────────────►│   password = ${file:/etc/free... │
-└─────────────────────┘     as path   │ }                                │
-                                      └──────────────────────────────────┘
+```mermaid
+flowchart LR
+    Secret["**Secret: db-credentials**\ndata:\n  password: ****"]
+    Config["**Rendered mods-enabled/sql**\nsql {\n  password = $'{file:/etc/freeradius/\n  secrets/db-credentials/password}'\n}"]
+
+    Secret -->|"renders as\nfile path"| Config
 ```

@@ -34,17 +34,14 @@ Instead of writing `radiusd.conf`, `clients.conf`, and `mods-enabled/*` by hand,
 
 ### Custom Resources at a Glance
 
-```
-RadiusCluster          RadiusClient            RadiusPolicy
-┌────────────────┐     ┌────────────────┐      ┌────────────────┐
-│ image           │     │ clusterRef     │      │ clusterRef     │
-│ replicas        │◄────│ ip / CIDR      │      │ stage          │
-│ modules[]       │     │ secretRef      │  ┌──►│ priority       │
-│ tls             │◄────│ nasType        │  │   │ match{}        │
-│ autoscaling     │     └────────────────┘  │   │ actions[]      │
-│ resources       │                         │   └────────────────┘
-│ probes          │◄────────────────────────┘
-└────────────────┘
+```mermaid
+graph LR
+    Client["**RadiusClient**\nclusterRef\nip / CIDR\nsecretRef\nnasType"]
+    Cluster["**RadiusCluster**\nimage\nreplicas\nmodules[]\ntls\nautoscaling\nresources\nprobes"]
+    Policy["**RadiusPolicy**\nclusterRef\nstage\npriority\nmatch{}\nactions[]"]
+
+    Client -->|clusterRef| Cluster
+    Policy -->|clusterRef| Cluster
 ```
 
 `RadiusClient` and `RadiusPolicy` resources reference a `RadiusCluster` via `clusterRef`. When any of the three resources change, the operator re-renders the full FreeRADIUS configuration and performs a rolling update.

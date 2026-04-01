@@ -22,6 +22,43 @@ footer_content: "Copyright &copy; 2024-2026 Work-Systems-Ltd. Distributed under 
 
 color_scheme: worksystems
 
+mermaid:
+  version: "11"
+  theme: base
+  themeVariables:
+    primaryColor: "#2A2A2A"
+    primaryBorderColor: "#FF6A3A"
+    primaryTextColor: "#F8F8F8"
+    secondaryColor: "#1E1E1E"
+    secondaryBorderColor: "#333333"
+    secondaryTextColor: "#CCCCCC"
+    tertiaryColor: "#252525"
+    lineColor: "#FF6A3A"
+    textColor: "#F8F8F8"
+    mainBkg: "#2A2A2A"
+    nodeBorder: "#FF6A3A"
+    clusterBkg: "#1A1A1A"
+    titleColor: "#FF6A3A"
+    edgeLabelBackground: "#1A1A1A"
+    nodeTextColor: "#F8F8F8"
+    actorBkg: "#2A2A2A"
+    actorBorder: "#FF6A3A"
+    actorTextColor: "#F8F8F8"
+    actorLineColor: "#555555"
+    signalColor: "#FF6A3A"
+    signalTextColor: "#F8F8F8"
+    labelBoxBkgColor: "#1A1A1A"
+    labelBoxBorderColor: "#FF6A3A"
+    labelTextColor: "#F8F8F8"
+    loopTextColor: "#FF6A3A"
+    noteBkgColor: "#2A2A2A"
+    noteBorderColor: "#FF6A3A"
+    noteTextColor: "#F8F8F8"
+    activationBkgColor: "#FF6A3A"
+    activationBorderColor: "#FF8A60"
+    sequenceNumberColor: "#111111"
+    fontFamily: "DM Sans, sans-serif"
+
 callouts:
   warning:
     title: Warning

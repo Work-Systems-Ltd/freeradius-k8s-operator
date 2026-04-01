@@ -29,14 +29,12 @@ The operator enforces a strict principle: **plaintext secret values never appear
 3. The operator mounts each referenced Secret as a **read-only volume** in the FreeRADIUS pod
 4. Rendered configuration files use FreeRADIUS's `${file:...}` syntax to read the value from disk at runtime
 
-```
-Kubernetes Secret           Rendered clients.conf
-┌──────────────────┐        ┌──────────────────────────────────────────────┐
-│ name: switch-sec │        │ client my-switch {                           │
-│ data:            │───────►│   secret = ${file:/etc/freeradius/secrets/   │
-│   key: ********  │  path  │            switch-sec/key}                   │
-└──────────────────┘  only  │ }                                            │
-                            └──────────────────────────────────────────────┘
+```mermaid
+flowchart LR
+    Secret["**Kubernetes Secret**\nname: switch-sec\ndata:\n  key: ********"]
+    Config["**Rendered clients.conf**\nclient my-switch {\n  secret = $'{file:/etc/freeradius/\n  secrets/switch-sec/key}'\n}"]
+
+    Secret -->|"path reference only\n(no plaintext)"| Config
 ```
 
 The plaintext value exists only:
