@@ -7,10 +7,6 @@ import (
 	"pgregory.net/rapid"
 )
 
-// Feature: freeradius-operator, Property 1: Non-existent clusterRef yields Invalid status
-// This property is validated at the integration/e2e level since it requires a running API server.
-// Here we test the enqueueOwningCluster mapping function.
-
 func TestEnqueueOwningCluster_RadiusClient(t *testing.T) {
 	rapid.Check(t, func(t *rapid.T) {
 		clusterRef := rapid.StringMatching(`[a-z][a-z0-9]{2,10}`).Draw(t, "clusterRef")

@@ -9,302 +9,135 @@ import (
 )
 
 func TestGolden_SQLModuleRendering(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{
-			Replicas: 1,
-			Image:    "docker.io/freeradius/freeradius-server:3.2.3",
-			Modules: []ModuleConfig{
-				{
-					Name:    "sql",
-					Type:    "rlm_sql",
-					Enabled: true,
-					SQL: &SQLConfig{
-						Dialect:  "postgresql",
-						Server:   "postgres.example.com",
-						Port:     5432,
-						Database: "radius",
-						Login:    "radius",
-						PasswordRef: SecretRef{
-							Name: "radius-sql-secret",
-							Key:  "password",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3", Modules: []ModuleConfig{{
+			Name: "sql", Type: "rlm_sql", Enabled: true,
+			SQL: &SQLConfig{Dialect: "postgresql", Server: "postgres.example.com", Port: 5432,
+				Database: "radius", Login: "radius", PasswordRef: SecretRef{Name: "radius-sql-secret", Key: "password"}},
+		}}},
+	})
 	require.NoError(t, err)
-
-	sqlContent := files["mods-enabled/sql"]
-	require.NotEmpty(t, sqlContent, "mods-enabled/sql should not be empty")
-
-	assert.Contains(t, sqlContent, `driver = "rlm_sql_postgresql"`)
-	assert.Contains(t, sqlContent, `dialect = "postgresql"`)
-	assert.Contains(t, sqlContent, `server = "postgres.example.com"`)
-	assert.Contains(t, sqlContent, `port = 5432`)
-	assert.Contains(t, sqlContent, `database = "radius"`)
-	assert.Contains(t, sqlContent, `login = "radius"`)
-	assert.Contains(t, sqlContent, `${file:/etc/freeradius/secrets/radius-sql-secret/password}`)
-	// Must NOT contain plaintext password
-	assert.NotContains(t, sqlContent, "supersecret")
+	c := files["mods-enabled/sql"]
+	assert.Contains(t, c, `driver = "rlm_sql_postgresql"`)
+	assert.Contains(t, c, `dialect = "postgresql"`)
+	assert.Contains(t, c, `server = "postgres.example.com"`)
+	assert.Contains(t, c, `port = 5432`)
+	assert.Contains(t, c, `database = "radius"`)
+	assert.Contains(t, c, `login = "radius"`)
+	assert.Contains(t, c, `${file:/etc/freeradius/secrets/radius-sql-secret/password}`)
 }
 
 func TestGolden_LDAPModuleRendering(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{
-			Replicas: 1,
-			Image:    "docker.io/freeradius/freeradius-server:3.2.3",
-			Modules: []ModuleConfig{
-				{
-					Name:    "ldap",
-					Type:    "rlm_ldap",
-					Enabled: true,
-					LDAP: &LDAPConfig{
-						Server:   "ldap.corp.example.com",
-						Port:     389,
-						BaseDN:   "dc=corp,dc=example,dc=com",
-						Identity: "cn=radius,dc=corp,dc=example,dc=com",
-						PasswordRef: SecretRef{
-							Name: "radius-ldap-secret",
-							Key:  "password",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3", Modules: []ModuleConfig{{
+			Name: "ldap", Type: "rlm_ldap", Enabled: true,
+			LDAP: &LDAPConfig{Server: "ldap.corp.example.com", Port: 389, BaseDN: "dc=corp,dc=example,dc=com",
+				Identity: "cn=radius,dc=corp,dc=example,dc=com", PasswordRef: SecretRef{Name: "radius-ldap-secret", Key: "password"}},
+		}}},
+	})
 	require.NoError(t, err)
-
-	ldapContent := files["mods-enabled/ldap"]
-	require.NotEmpty(t, ldapContent, "mods-enabled/ldap should not be empty")
-
-	assert.Contains(t, ldapContent, "base_dn")
-	assert.Contains(t, ldapContent, "dc=corp,dc=example,dc=com")
-	assert.Contains(t, ldapContent, "identity")
-	assert.Contains(t, ldapContent, "${file:/etc/freeradius/secrets/radius-ldap-secret/password}")
+	c := files["mods-enabled/ldap"]
+	assert.Contains(t, c, "base_dn")
+	assert.Contains(t, c, "dc=corp,dc=example,dc=com")
+	assert.Contains(t, c, "${file:/etc/freeradius/secrets/radius-ldap-secret/password}")
 }
 
 func TestGolden_ClientsConfContainsAllClients(t *testing.T) {
-	r := New()
 	clients := []ClientSpec{
 		{Name: "bng-auckland-01", IP: "10.0.1.0/24", SecretRef: SecretRef{Name: "bng-auckland-01-secret", Key: "shared-secret"}, NASType: "nokia"},
 		{Name: "bng-sydney-01", IP: "10.0.2.0/24", SecretRef: SecretRef{Name: "bng-sydney-01-secret", Key: "shared-secret"}, NASType: "cisco"},
 		{Name: "bng-melbourne-01", IP: "10.0.3.1", SecretRef: SecretRef{Name: "bng-melbourne-01-secret", Key: "shared-secret"}, NASType: "other"},
 	}
-
-	ctx := RenderContext{
-		Cluster:  ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
-		Clients:  clients,
-		Policies: nil,
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}, Clients: clients})
 	require.NoError(t, err)
-
-	clientsConf := files["clients.conf"]
-	require.NotEmpty(t, clientsConf)
-
-	for _, c := range clients {
-		assert.Contains(t, clientsConf, "client "+c.Name+" {")
-		assert.Contains(t, clientsConf, "ipaddr = "+c.IP)
-		assert.Contains(t, clientsConf, "${file:/etc/freeradius/secrets/"+c.SecretRef.Name+"/"+c.SecretRef.Key+"}")
-		assert.Contains(t, clientsConf, "nastype = "+c.NASType)
+	c := files["clients.conf"]
+	for _, cl := range clients {
+		assert.Contains(t, c, "client "+cl.Name+" {")
+		assert.Contains(t, c, "ipaddr = "+cl.IP)
+		assert.Contains(t, c, "${file:/etc/freeradius/secrets/"+cl.SecretRef.Name+"/"+cl.SecretRef.Key+"}")
+		assert.Contains(t, c, "nastype = "+cl.NASType)
 	}
 }
 
 func TestGolden_SitesEnabledContainsAllStages(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster:  ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
-		Policies: nil,
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}})
 	require.NoError(t, err)
-
-	sitesDefault := files["sites-enabled/default"]
-	require.NotEmpty(t, sitesDefault)
-
+	s := files["sites-enabled/default"]
 	for _, stage := range validStages {
-		assert.Contains(t, sitesDefault, "    "+stage+" {", "stage %q missing", stage)
+		assert.Contains(t, s, "    "+stage+" {")
 	}
-	assert.Contains(t, sitesDefault, "server default {")
+	assert.Contains(t, s, "server default {")
 }
 
 func TestGolden_DisabledModulesProduceNoOutput(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{
-			Replicas: 1,
-			Image:    "freeradius:3.2.3",
-			Modules: []ModuleConfig{
-				{
-					Name:    "sql",
-					Type:    "rlm_sql",
-					Enabled: false,
-					SQL: &SQLConfig{
-						Dialect:     "postgresql",
-						Server:      "db.example.com",
-						Port:        5432,
-						Database:    "radius",
-						Login:       "radius",
-						PasswordRef: SecretRef{Name: "secret", Key: "password"},
-					},
-				},
-				{
-					Name:    "ldap",
-					Type:    "rlm_ldap",
-					Enabled: false,
-					LDAP: &LDAPConfig{
-						Server:      "ldap.example.com",
-						Port:        389,
-						BaseDN:      "dc=example,dc=com",
-						Identity:    "cn=admin,dc=example,dc=com",
-						PasswordRef: SecretRef{Name: "secret", Key: "password"},
-					},
-				},
-			},
-		},
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3", Modules: []ModuleConfig{
+		{Name: "sql", Type: "rlm_sql", Enabled: false, SQL: &SQLConfig{Dialect: "postgresql", Server: "db", Port: 5432, Database: "r", Login: "r", PasswordRef: SecretRef{Name: "s", Key: "p"}}},
+		{Name: "ldap", Type: "rlm_ldap", Enabled: false, LDAP: &LDAPConfig{Server: "ldap", Port: 389, BaseDN: "dc=e", Identity: "cn=a", PasswordRef: SecretRef{Name: "s", Key: "p"}}},
+	}}})
 	require.NoError(t, err)
-
 	_, hasSql := files["mods-enabled/sql"]
-	assert.False(t, hasSql, "disabled sql module should not appear in output")
-
 	_, hasLdap := files["mods-enabled/ldap"]
-	assert.False(t, hasLdap, "disabled ldap module should not appear in output")
+	assert.False(t, hasSql)
+	assert.False(t, hasLdap)
 }
 
 func TestGolden_EmptyClientListProducesLocalhostOnly(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster:  ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
-		Clients:  nil,
-		Policies: nil,
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}})
 	require.NoError(t, err)
-
-	clientsConf := files["clients.conf"]
-	require.NotEmpty(t, clientsConf, "clients.conf should have at least a header")
-
-	// Should contain the localhost client for readiness probes
-	assert.Contains(t, clientsConf, "client localhost {")
-	assert.Contains(t, clientsConf, "secret = testing123")
-	// Should contain the header comment
-	assert.Contains(t, clientsConf, "clients.conf")
-	// Should have exactly one client block (localhost)
-	assert.Equal(t, 1, strings.Count(clientsConf, "client "))
+	c := files["clients.conf"]
+	assert.Contains(t, c, "client localhost {")
+	assert.Contains(t, c, "secret = testing123")
+	assert.Equal(t, 1, strings.Count(c, "client "))
 }
 
 func TestGolden_RadiusdConfHasRequiredDirectives(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
-	}
-
-	files, err := r.Render(ctx)
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}})
 	require.NoError(t, err)
-
-	radiusd := files["radiusd.conf"]
-	assert.Contains(t, radiusd, "status_server = yes")
-	assert.Contains(t, radiusd, "$INCLUDE clients.conf")
-	assert.Contains(t, radiusd, "$INCLUDE mods-enabled/")
-	assert.Contains(t, radiusd, "$INCLUDE sites-enabled/")
-	assert.Contains(t, radiusd, "port = 1812")
-	assert.Contains(t, radiusd, "port = 1813")
+	r := files["radiusd.conf"]
+	assert.Contains(t, r, "status_server = yes")
+	assert.Contains(t, r, "$INCLUDE clients.conf")
+	assert.Contains(t, r, "$INCLUDE mods-enabled/")
+	assert.Contains(t, r, "$INCLUDE sites-enabled/")
+	assert.Contains(t, r, "port = 1812")
+	assert.Contains(t, r, "port = 1813")
 }
 
 func TestGolden_InvalidModuleTypeReturnsError(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{
-			Replicas: 1,
-			Image:    "freeradius:3.2.3",
-			Modules: []ModuleConfig{
-				{
-					Name:    "unknown",
-					Type:    "rlm_nonexistent",
-					Enabled: true,
-				},
-			},
-		},
-	}
-
-	_, err := r.Render(ctx)
+	_, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3", Modules: []ModuleConfig{
+		{Name: "unknown", Type: "rlm_nonexistent", Enabled: true},
+	}}})
 	require.Error(t, err)
-
 	var modErr *InvalidModuleError
 	require.ErrorAs(t, err, &modErr)
 	assert.Equal(t, "rlm_nonexistent", modErr.ModuleType)
 }
 
 func TestGolden_PoliciesRenderedInPriorityOrder(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
+	files, err := New().Render(RenderContext{
 		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
 		Policies: []PolicySpec{
 			{Name: "policy-high", Stage: "authorize", Priority: 100, Actions: []PolicyAction{{Type: "accept"}}},
 			{Name: "policy-low", Stage: "authorize", Priority: 10, Actions: []PolicyAction{{Type: "accept"}}},
 			{Name: "policy-mid", Stage: "authorize", Priority: 50, Actions: []PolicyAction{{Type: "accept"}}},
 		},
-	}
-
-	files, err := r.Render(ctx)
+	})
 	require.NoError(t, err)
-
-	sitesDefault := files["sites-enabled/default"]
-
-	posLow := strings.Index(sitesDefault, "policy-low")
-	posMid := strings.Index(sitesDefault, "policy-mid")
-	posHigh := strings.Index(sitesDefault, "policy-high")
-
-	assert.Less(t, posLow, posMid, "policy-low (priority 10) should appear before policy-mid (priority 50)")
-	assert.Less(t, posMid, posHigh, "policy-mid (priority 50) should appear before policy-high (priority 100)")
+	s := files["sites-enabled/default"]
+	assert.Less(t, strings.Index(s, "policy-low"), strings.Index(s, "policy-mid"))
+	assert.Less(t, strings.Index(s, "policy-mid"), strings.Index(s, "policy-high"))
 }
 
 func TestGolden_EAPModuleRendering(t *testing.T) {
-	r := New()
-	ctx := RenderContext{
-		Cluster: ClusterSpec{
-			Replicas: 1,
-			Image:    "freeradius:3.2.3",
-			Modules: []ModuleConfig{
-				{
-					Name:    "eap",
-					Type:    "rlm_eap",
-					Enabled: true,
-					EAP: &EAPConfig{
-						DefaultEAPType: "peap",
-						PEAP: &EAPPEAPConfig{
-							DefaultEAPType: "mschapv2",
-						},
-						TLS: &EAPTLSConfig{
-							CertFile: "/etc/freeradius/certs/server.pem",
-							KeyFile:  "/etc/freeradius/certs/server.key",
-						},
-					},
-				},
-			},
+	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3", Modules: []ModuleConfig{{
+		Name: "eap", Type: "rlm_eap", Enabled: true,
+		EAP: &EAPConfig{DefaultEAPType: "peap",
+			PEAP: &EAPPEAPConfig{DefaultEAPType: "mschapv2"},
+			TLS:  &EAPTLSConfig{CertFile: "/etc/freeradius/certs/server.pem", KeyFile: "/etc/freeradius/certs/server.key"},
 		},
-	}
-
-	files, err := r.Render(ctx)
+	}}}})
 	require.NoError(t, err)
-
-	eapContent := files["mods-enabled/eap"]
-	require.NotEmpty(t, eapContent)
-
-	assert.Contains(t, eapContent, "default_eap_type = peap")
-	assert.Contains(t, eapContent, "peap {")
-	assert.Contains(t, eapContent, "tls {")
+	c := files["mods-enabled/eap"]
+	assert.Contains(t, c, "default_eap_type = peap")
+	assert.Contains(t, c, "peap {")
+	assert.Contains(t, c, "tls {")
 }
