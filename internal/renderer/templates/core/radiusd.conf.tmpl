@@ -30,3 +30,17 @@ listen {
     ipv6addr = ::
     port = 1813
 }
+{{- if .CoAEnabled }}
+
+listen {
+    type = coa
+    ipaddr = *
+    port = {{ .CoAPort }}
+}
+
+listen {
+    type = coa
+    ipv6addr = ::
+    port = {{ .CoAPort }}
+}
+{{- end }}

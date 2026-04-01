@@ -1,0 +1,49 @@
+# 2026/04/01 08:55:29.013582 [TestAllClientsInConfig] [rapid] draw nClients: 1
+# 2026/04/01 08:55:29.013589 [TestAllClientsInConfig] [rapid] draw clientName: "a"
+# 2026/04/01 08:55:29.013593 [TestAllClientsInConfig] [rapid] draw clientIP: "0.0.0.0"
+# 2026/04/01 08:55:29.013594 [TestAllClientsInConfig] [rapid] draw secretName: "a"
+# 2026/04/01 08:55:29.013600 [TestAllClientsInConfig] [rapid] draw secretKey: "a"
+# 2026/04/01 08:55:29.013601 [TestAllClientsInConfig] [rapid] draw nasType: "cisco"
+# 2026/04/01 08:55:29.013649 [TestAllClientsInConfig] client "a" not found
+# 
+v0.4.8#12207247503826739530
+0x0
+0x0
+0x1
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

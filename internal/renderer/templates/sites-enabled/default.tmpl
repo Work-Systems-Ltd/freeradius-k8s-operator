@@ -8,3 +8,15 @@ server default {
 {{ range .Actions }}{{ renderAction . "            " }}{{ end }}        }
 {{ end }}    }
 {{ end }}}
+{{- if .CoAEnabled }}
+
+server coa {
+    recv-coa {
+        ok
+    }
+
+    send-coa {
+        ok
+    }
+}
+{{- end }}

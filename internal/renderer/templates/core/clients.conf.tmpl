@@ -13,10 +13,5 @@ client localhost_v6 {
     nastype = other
 }
 
-{{ range . }}client {{ .Name }} {
-    {{ ipaddrDirective .IP }} = {{ .IP }}
-    secret = $${file:/etc/freeradius/secrets/{{ .SecretRef.Name }}/{{ .SecretRef.Key }}}
-    nastype = {{ .NASType }}
-}
-
+{{ range $i := seq .ShardCount }}$INCLUDE clients_{{ printf "%03d" $i }}.conf
 {{ end }}
