@@ -210,9 +210,9 @@ func TestAllClientsInConfig(t *testing.T) {
 				t.Fatalf("client %q not found", c.Name)
 			}
 		}
-		// +1 for localhost probe client
-		if count := strings.Count(clientsConf, "client "); count != nClients+1 {
-			t.Fatalf("expected %d client blocks (including localhost), got %d", nClients+1, count)
+		// +2 for localhost + localhost_v6 probe clients
+		if count := strings.Count(clientsConf, "client "); count != nClients+2 {
+			t.Fatalf("expected %d client blocks (including localhost + localhost_v6), got %d", nClients+2, count)
 		}
 	})
 }

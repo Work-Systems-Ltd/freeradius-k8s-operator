@@ -1,0 +1,5 @@
+redis {{ .Name }} {
+    server = {{ .Redis.Server }}
+    port = {{ .Redis.Port }}
+{{ if .Redis.PasswordRef }}    password = {{ secretFilePathPtr .Redis.PasswordRef }}
+{{ end }}}

@@ -1,0 +1,15 @@
+eap {{ .Name }} {
+    default_eap_type = {{ .EAP.DefaultEAPType }}
+{{ if .EAP.TLS }}    tls {
+        certfile = {{ .EAP.TLS.CertFile }}
+        keyfile = {{ .EAP.TLS.KeyFile }}
+    }
+{{ end }}{{ if .EAP.TTLS }}    ttls {
+        default_eap_type = {{ .EAP.TTLS.DefaultEAPType }}
+{{ if .EAP.TTLS.VirtualServer }}        virtual_server = {{ .EAP.TTLS.VirtualServer }}
+{{ end }}    }
+{{ end }}{{ if .EAP.PEAP }}    peap {
+        default_eap_type = {{ .EAP.PEAP.DefaultEAPType }}
+{{ if .EAP.PEAP.VirtualServer }}        virtual_server = {{ .EAP.PEAP.VirtualServer }}
+{{ end }}    }
+{{ end }}}

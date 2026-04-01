@@ -1,0 +1,33 @@
+rest {{ .Name }} {
+    connect_uri = "{{ .REST.ConnectURI }}"
+{{ if .REST.Auth }}    auth = {{ .REST.Auth }}
+{{ end }}{{ if .REST.PasswordRef }}    password = "{{ secretFilePathPtr .REST.PasswordRef }}"
+{{ end }}{{ if .REST.Authorize }}    authorize {
+        uri = "{{ .REST.Authorize.URI }}"
+        method = "{{ .REST.Authorize.Method }}"
+    }
+{{ end }}{{ if .REST.Authenticate }}    authenticate {
+        uri = "{{ .REST.Authenticate.URI }}"
+        method = "{{ .REST.Authenticate.Method }}"
+    }
+{{ end }}{{ if .REST.Preacct }}    preacct {
+        uri = "{{ .REST.Preacct.URI }}"
+        method = "{{ .REST.Preacct.Method }}"
+    }
+{{ end }}{{ if .REST.Accounting }}    accounting {
+        uri = "{{ .REST.Accounting.URI }}"
+        method = "{{ .REST.Accounting.Method }}"
+    }
+{{ end }}{{ if .REST.PostAuth }}    post-auth {
+        uri = "{{ .REST.PostAuth.URI }}"
+        method = "{{ .REST.PostAuth.Method }}"
+    }
+{{ end }}{{ if .REST.PreProxy }}    pre-proxy {
+        uri = "{{ .REST.PreProxy.URI }}"
+        method = "{{ .REST.PreProxy.Method }}"
+    }
+{{ end }}{{ if .REST.PostProxy }}    post-proxy {
+        uri = "{{ .REST.PostProxy.URI }}"
+        method = "{{ .REST.PostProxy.Method }}"
+    }
+{{ end }}}

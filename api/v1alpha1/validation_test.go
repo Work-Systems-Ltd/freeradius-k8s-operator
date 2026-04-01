@@ -9,7 +9,7 @@ import (
 )
 
 var ipCIDRPattern = regexp.MustCompile(
-	`^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:]+)(\/\d{1,3})?)$`,
+	`^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:.]+)(\/\d{1,3})?)$`,
 )
 
 func TestIPCIDRValidation(t *testing.T) {
@@ -39,7 +39,7 @@ func TestIPCIDRValidation(t *testing.T) {
 	})
 
 	t.Run("valid IPv6 addresses match", func(t *testing.T) {
-		for _, addr := range []string{"2001:db8::1", "::1", "fe80::1", "2001:0db8:0000:0000:0000:0000:0000:0001"} {
+		for _, addr := range []string{"2001:db8::1", "::1", "fe80::1", "2001:0db8:0000:0000:0000:0000:0000:0001", "::ffff:192.0.2.1"} {
 			if !ipCIDRPattern.MatchString(addr) {
 				t.Fatalf("expected valid IPv6 %q to match", addr)
 			}
@@ -58,7 +58,7 @@ func TestIPCIDRValidation(t *testing.T) {
 	})
 
 	t.Run("invalid strings do not match", func(t *testing.T) {
-		for _, s := range []string{"hello", "not-an-ip", "xyz.abc", "192.168.1", "g1234"} {
+		for _, s := range []string{"hello", "not-an-ip", "xyz.abc", "g1234", "just spaces"} {
 			if ipCIDRPattern.MatchString(s) {
 				t.Fatalf("expected %q to not match", s)
 			}

@@ -1,0 +1,7 @@
+ldap {{ .Name }} {
+    server = '{{ .LDAP.Server }}'
+    port = {{ .LDAP.Port }}
+    base_dn = '{{ .LDAP.BaseDN }}'
+    identity = '{{ .LDAP.Identity }}'
+    password = {{ secretFilePath .LDAP.PasswordRef }}
+}

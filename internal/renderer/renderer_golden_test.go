@@ -59,6 +59,22 @@ func TestGolden_ClientsConfContainsAllClients(t *testing.T) {
 	}
 }
 
+func TestGolden_IPv6ClientUsesIpv6addr(t *testing.T) {
+	files, err := New().Render(RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Clients: []ClientSpec{
+			{Name: "v4-client", IP: "10.0.1.1", SecretRef: SecretRef{Name: "s1", Key: "k"}, NASType: "other"},
+			{Name: "v6-client", IP: "2001:db8::1", SecretRef: SecretRef{Name: "s2", Key: "k"}, NASType: "other"},
+			{Name: "v6-mapped", IP: "::ffff:192.0.2.1", SecretRef: SecretRef{Name: "s3", Key: "k"}, NASType: "other"},
+		},
+	})
+	require.NoError(t, err)
+	c := files["clients.conf"]
+	assert.Contains(t, c, "client v4-client {\n    ipaddr = 10.0.1.1")
+	assert.Contains(t, c, "client v6-client {\n    ipv6addr = 2001:db8::1")
+	assert.Contains(t, c, "client v6-mapped {\n    ipv6addr = ::ffff:192.0.2.1")
+}
+
 func TestGolden_SitesEnabledContainsAllStages(t *testing.T) {
 	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}})
 	require.NoError(t, err)
@@ -86,8 +102,10 @@ func TestGolden_EmptyClientListProducesLocalhostOnly(t *testing.T) {
 	require.NoError(t, err)
 	c := files["clients.conf"]
 	assert.Contains(t, c, "client localhost {")
-	assert.Contains(t, c, "secret = testing123")
-	assert.Equal(t, 1, strings.Count(c, "client "))
+	assert.Contains(t, c, "ipaddr = 127.0.0.1")
+	assert.Contains(t, c, "client localhost_v6 {")
+	assert.Contains(t, c, "ipv6addr = ::1")
+	assert.Equal(t, 2, strings.Count(c, "client "))
 }
 
 func TestGolden_RadiusdConfHasRequiredDirectives(t *testing.T) {
@@ -98,6 +116,8 @@ func TestGolden_RadiusdConfHasRequiredDirectives(t *testing.T) {
 	assert.Contains(t, r, "$INCLUDE clients.conf")
 	assert.Contains(t, r, "$INCLUDE mods-enabled/")
 	assert.Contains(t, r, "$INCLUDE sites-enabled/")
+	assert.Contains(t, r, "ipaddr = *")
+	assert.Contains(t, r, "ipv6addr = ::")
 	assert.Contains(t, r, "port = 1812")
 	assert.Contains(t, r, "port = 1813")
 }

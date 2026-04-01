@@ -39,7 +39,7 @@ spec:
                   type: string
                 ip:
                   type: string
-                  pattern: '^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:]+)(\/\d{1,3})?)$'
+                  pattern: '^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:.]+)(\/\d{1,3})?)$'
                 secretRef:
                   type: object
                   required:
