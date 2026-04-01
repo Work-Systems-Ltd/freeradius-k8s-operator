@@ -1,0 +1,54 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: freeradius-operator-manager-role
+rules:
+  # RadiusCluster
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiusclusters"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiusclusters/status"]
+    verbs: ["get", "update", "patch"]
+  # RadiusClient
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiusclients"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiusclients/status"]
+    verbs: ["get", "update", "patch"]
+  # RadiusPolicy
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiuspolicies"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["radius.operator.io"]
+    resources: ["radiuspolicies/status"]
+    verbs: ["get", "update", "patch"]
+  # Deployments
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Services
+  - apiGroups: [""]
+    resources: ["services"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # ConfigMaps
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  # Secrets (read-only)
+  - apiGroups: [""]
+    resources: ["secrets"]
+    verbs: ["get", "list", "watch"]
+  # Pods (read-only, for restart count)
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  # Events
+  - apiGroups: [""]
+    resources: ["events"]
+    verbs: ["create", "patch"]
+  # HPA
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

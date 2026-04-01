@@ -1,0 +1,52 @@
+# 2026/03/30 08:05:38.476885 [TestPolicyPriorityOrdering] [rapid] draw stage: "authorize"
+# 2026/03/30 08:05:38.476900 [TestPolicyPriorityOrdering] [rapid] draw nPolicies: 2
+# 2026/03/30 08:05:38.476914 [TestPolicyPriorityOrdering] [rapid] draw pname: "a000"
+# 2026/03/30 08:05:38.476917 [TestPolicyPriorityOrdering] [rapid] draw priority: 1
+# 2026/03/30 08:05:38.476923 [TestPolicyPriorityOrdering] [rapid] draw pname: "a000"
+# 2026/03/30 08:05:38.476925 [TestPolicyPriorityOrdering] [rapid] draw priority: 0
+# 2026/03/30 08:05:38.476953 [TestPolicyPriorityOrdering] policy with priority 1 appears after policy with priority 0
+# 
+v0.4.8#12046918727962099634
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x1
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0

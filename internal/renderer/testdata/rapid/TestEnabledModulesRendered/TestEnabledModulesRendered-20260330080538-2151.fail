@@ -1,0 +1,33 @@
+# 2026/03/30 08:05:38.907756 [TestEnabledModulesRendered] [rapid] draw nMods: 2
+# 2026/03/30 08:05:38.907762 [TestEnabledModulesRendered] [rapid] draw modType: "rlm_eap"
+# 2026/03/30 08:05:38.907766 [TestEnabledModulesRendered] [rapid] draw modName: "a"
+# 2026/03/30 08:05:38.907767 [TestEnabledModulesRendered] [rapid] draw modEnabled: false
+# 2026/03/30 08:05:38.907768 [TestEnabledModulesRendered] [rapid] draw eapType: "peap"
+# 2026/03/30 08:05:38.907770 [TestEnabledModulesRendered] [rapid] draw modType: "rlm_eap"
+# 2026/03/30 08:05:38.907771 [TestEnabledModulesRendered] [rapid] draw modName: "a"
+# 2026/03/30 08:05:38.907772 [TestEnabledModulesRendered] [rapid] draw modEnabled: true
+# 2026/03/30 08:05:38.907773 [TestEnabledModulesRendered] [rapid] draw eapType: "peap"
+# 2026/03/30 08:05:38.907790 [TestEnabledModulesRendered] disabled module "a" (type rlm_eap) should not appear in output
+# 
+v0.4.8#8401781887336796721
+0x0
+0x0
+0x1
+0x38e38e38e38e4
+0x2
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x0
+0x38e38e38e38e4
+0x2
+0x0
+0x0
+0x0
+0x0
+0x1
+0x0
+0x0
