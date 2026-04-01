@@ -26,10 +26,11 @@ type stageData struct {
 }
 
 type sitesContext struct {
-	Stages []stageData
+	Stages     []stageData
+	CoAEnabled bool
 }
 
-func renderSites(policies []PolicySpec) (string, error) {
+func renderSites(policies []PolicySpec, coaEnabled ...bool) (string, error) {
 	for _, p := range policies {
 		if !validStageSet[p.Stage] {
 			return "", &InvalidStageError{Stage: p.Stage}
@@ -56,6 +57,9 @@ func renderSites(policies []PolicySpec) (string, error) {
 	ctx := sitesContext{Stages: make([]stageData, len(validStages))}
 	for i, stage := range validStages {
 		ctx.Stages[i] = stageData{Name: stage, Policies: byStage[stage]}
+	}
+	if len(coaEnabled) > 0 && coaEnabled[0] {
+		ctx.CoAEnabled = true
 	}
 
 	var buf bytes.Buffer

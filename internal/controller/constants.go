@@ -5,4 +5,5 @@ const (
 	deploymentSuffix = "-freeradius"
 	serviceSuffix    = "-freeradius"
 	hpaSuffix        = "-freeradius"
+	pdbSuffix        = "-freeradius"
 )

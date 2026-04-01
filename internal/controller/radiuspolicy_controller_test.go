@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -37,7 +38,7 @@ func TestEnqueueOwningCluster_RadiusPolicy(t *testing.T) {
 			Spec: radiusv1alpha1.RadiusPolicySpec{ClusterRef: clusterRef, Stage: "authorize", Priority: 10},
 		}
 
-		requests := enqueueOwningCluster(nil, policy)
+		requests := enqueueOwningCluster(context.TODO(), policy)
 		assert.Len(t, requests, 1)
 		assert.Equal(t, clusterRef, requests[0].Name)
 		assert.Equal(t, ns, requests[0].Namespace)

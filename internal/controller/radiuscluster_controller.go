@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	corev1 "k8s.io/api/core/v1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -46,6 +47,7 @@ type RadiusClusterReconciler struct {
 // +kubebuilder:rbac:groups="",resources=pods,verbs=get;list;watch
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;patch
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;patch;delete
 
 func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	logger := log.FromContext(ctx)
@@ -119,6 +121,7 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		func() error { return r.reconcileDeployment(ctx, cluster, secretRefs) },
 		func() error { return r.reconcileService(ctx, cluster) },
 		func() error { return r.reconcileHPA(ctx, cluster) },
+		func() error { return r.reconcilePDB(ctx, cluster) },
 	} {
 		if err := reconcileFn(); err != nil {
 			result = "error"
@@ -275,10 +278,7 @@ done`},
 			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
 		},
 		SecurityContext: restrictedSC,
-		Resources: corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
-			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
-		},
+		Resources:       initContainerResources(cluster),
 	}
 
 	mainMounts := []corev1.VolumeMount{
@@ -300,14 +300,25 @@ done`},
 		}
 	}
 
+	containerPorts := []corev1.ContainerPort{
+		{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
+		{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
+	}
+	if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
+		coaPort := int32(3799)
+		if cluster.Spec.CoA.Port > 0 {
+			coaPort = cluster.Spec.CoA.Port
+		}
+		containerPorts = append(containerPorts, corev1.ContainerPort{
+			Name: "coa", ContainerPort: coaPort, Protocol: corev1.ProtocolUDP,
+		})
+	}
+
 	mainContainer := corev1.Container{
 		Name:            "freeradius",
 		Image:           cluster.Spec.Image,
 		ImagePullPolicy: corev1.PullIfNotPresent,
-		Ports: []corev1.ContainerPort{
-			{Name: "auth", ContainerPort: 1812, Protocol: corev1.ProtocolUDP},
-			{Name: "acct", ContainerPort: 1813, Protocol: corev1.ProtocolUDP},
-		},
+		Ports:           containerPorts,
 		SecurityContext: restrictedSC,
 		VolumeMounts:    mainMounts,
 		Resources:       cluster.Spec.Resources,
@@ -315,16 +326,39 @@ done`},
 		ReadinessProbe:  readiness,
 	}
 
-	return corev1.PodSpec{
+	// Anti-affinity: use explicit config or default to spread across nodes when replicas > 1
+	var affinity *corev1.Affinity
+	if cluster.Spec.Affinity != nil {
+		affinity = cluster.Spec.Affinity
+	} else if cluster.Spec.Replicas > 1 {
+		weight := int32(100)
+		affinity = &corev1.Affinity{
+			PodAntiAffinity: &corev1.PodAntiAffinity{
+				PreferredDuringSchedulingIgnoredDuringExecution: []corev1.WeightedPodAffinityTerm{{
+					Weight: weight,
+					PodAffinityTerm: corev1.PodAffinityTerm{
+						LabelSelector: &metav1.LabelSelector{MatchLabels: podLabels(cluster.Name)},
+						TopologyKey:   "kubernetes.io/hostname",
+					},
+				}},
+			},
+		}
+	}
+
+	podSpec := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: &trueVal,
 			RunAsUser:    &nobody,
 			RunAsGroup:   &nobody,
 		},
-		InitContainers: []corev1.Container{initContainer},
-		Containers:     []corev1.Container{mainContainer},
-		Volumes:        volumes,
+		Affinity:                  affinity,
+		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,
+		InitContainers:            []corev1.Container{initContainer},
+		Containers:                []corev1.Container{mainContainer},
+		Volumes:                   volumes,
 	}
+
+	return podSpec
 }
 
 func defaultProbes() (*corev1.Probe, *corev1.Probe) {
@@ -344,14 +378,44 @@ func (r *RadiusClusterReconciler) reconcileService(ctx context.Context, cluster 
 			return err
 		}
 		labels := podLabels(cluster.Name)
-		svc.Spec = corev1.ServiceSpec{
-			Type:     corev1.ServiceTypeClusterIP,
-			Selector: labels,
-			Ports: []corev1.ServicePort{
-				{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP},
-				{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP},
-			},
+
+		svcType := corev1.ServiceTypeClusterIP
+		if cluster.Spec.Service != nil && cluster.Spec.Service.Type != "" {
+			svcType = cluster.Spec.Service.Type
 		}
+
+		ports := []corev1.ServicePort{
+			{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP},
+			{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP},
+		}
+		if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
+			coaPort := int32(3799)
+			if cluster.Spec.CoA.Port > 0 {
+				coaPort = cluster.Spec.CoA.Port
+			}
+			ports = append(ports, corev1.ServicePort{
+				Name: "coa", Port: coaPort, TargetPort: intstr.FromInt(int(coaPort)), Protocol: corev1.ProtocolUDP,
+			})
+		}
+
+		svc.Spec = corev1.ServiceSpec{
+			Type:     svcType,
+			Selector: labels,
+			Ports:    ports,
+		}
+
+		if cluster.Spec.Service != nil {
+			if cluster.Spec.Service.LoadBalancerIP != "" {
+				svc.Spec.LoadBalancerIP = cluster.Spec.Service.LoadBalancerIP
+			}
+			if cluster.Spec.Service.ExternalTrafficPolicy != "" {
+				svc.Spec.ExternalTrafficPolicy = cluster.Spec.Service.ExternalTrafficPolicy
+			}
+			if len(cluster.Spec.Service.Annotations) > 0 {
+				svc.Annotations = cluster.Spec.Service.Annotations
+			}
+		}
+
 		return nil
 	})
 	return err
@@ -392,6 +456,39 @@ func (r *RadiusClusterReconciler) reconcileHPA(ctx context.Context, cluster *rad
 	return err
 }
 
+func (r *RadiusClusterReconciler) reconcilePDB(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
+	pdbName := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + pdbSuffix}
+
+	// Delete PDB if explicitly disabled or single replica
+	if cluster.Spec.PDB == nil && cluster.Spec.Replicas <= 1 {
+		existing := &policyv1.PodDisruptionBudget{}
+		if err := r.Get(ctx, pdbName, existing); err == nil {
+			return r.Delete(ctx, existing)
+		}
+		return nil
+	}
+
+	pdb := &policyv1.PodDisruptionBudget{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + pdbSuffix, Namespace: cluster.Namespace}}
+	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, pdb, func() error {
+		if err := ctrl.SetControllerReference(cluster, pdb, r.Scheme); err != nil {
+			return err
+		}
+		pdb.Spec = policyv1.PodDisruptionBudgetSpec{
+			Selector: &metav1.LabelSelector{MatchLabels: podLabels(cluster.Name)},
+		}
+		if cluster.Spec.PDB != nil {
+			pdb.Spec.MinAvailable = cluster.Spec.PDB.MinAvailable
+			pdb.Spec.MaxUnavailable = cluster.Spec.PDB.MaxUnavailable
+		} else {
+			// Default: minAvailable=1 when replicas > 1
+			minAvail := intstr.FromInt(1)
+			pdb.Spec.MinAvailable = &minAvail
+		}
+		return nil
+	})
+	return err
+}
+
 func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespace, clusterName string) int32 {
 	podList := &corev1.PodList{}
 	if err := r.List(ctx, podList, client.InNamespace(namespace), client.MatchingLabels(podLabels(clusterName))); err != nil {
@@ -404,6 +501,17 @@ func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespac
 		}
 	}
 	return total
+}
+
+func initContainerResources(cluster *radiusv1alpha1.RadiusCluster) corev1.ResourceRequirements {
+	if cluster.Spec.InitResources != nil {
+		return *cluster.Spec.InitResources
+	}
+	// Default: small resources, suitable for most deployments
+	return corev1.ResourceRequirements{
+		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
+		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
+	}
 }
 
 func podLabels(clusterName string) map[string]string {
@@ -539,8 +647,17 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 		renderPolicies = append(renderPolicies, policy)
 	}
 
+	clusterSpec := renderer.ClusterSpec{Replicas: cluster.Spec.Replicas, Image: cluster.Spec.Image, Modules: modules}
+	if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
+		clusterSpec.CoAEnabled = true
+		clusterSpec.CoAPort = cluster.Spec.CoA.Port
+		if clusterSpec.CoAPort == 0 {
+			clusterSpec.CoAPort = 3799
+		}
+	}
+
 	return renderer.RenderContext{
-		Cluster:  renderer.ClusterSpec{Replicas: cluster.Spec.Replicas, Image: cluster.Spec.Image, Modules: modules},
+		Cluster:  clusterSpec,
 		Clients:  renderClients,
 		Policies: renderPolicies,
 	}
@@ -561,6 +678,7 @@ func (r *RadiusClusterReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Service{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&autoscalingv2.HorizontalPodAutoscaler{}).
+		Owns(&policyv1.PodDisruptionBudget{}).
 		Watches(&radiusv1alpha1.RadiusClient{}, handler.EnqueueRequestsFromMapFunc(enqueueOwningCluster)).
 		Watches(&radiusv1alpha1.RadiusPolicy{}, handler.EnqueueRequestsFromMapFunc(enqueueOwningCluster)).
 		Complete(r)

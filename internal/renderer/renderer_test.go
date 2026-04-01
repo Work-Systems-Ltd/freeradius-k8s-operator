@@ -87,11 +87,11 @@ func genPolicySpec(t *rapid.T, stage string) PolicySpec {
 
 func genSQLConfig(t *rapid.T) *SQLConfig {
 	return &SQLConfig{
-		Dialect: rapid.SampledFrom([]string{"mysql", "postgresql", "sqlite", "mssql"}).Draw(t, "dialect"),
-		Server:  rapid.StringMatching(`[a-z][a-z0-9.-]{0,30}`).Draw(t, "sqlServer"),
-		Port:    rapid.Int32Range(1024, 65535).Draw(t, "sqlPort"),
-		Database: rapid.StringMatching(`[a-z][a-z0-9_]{0,20}`).Draw(t, "sqlDB"),
-		Login:    rapid.StringMatching(`[a-z][a-z0-9_]{0,20}`).Draw(t, "sqlLogin"),
+		Dialect:     rapid.SampledFrom([]string{"mysql", "postgresql", "sqlite", "mssql"}).Draw(t, "dialect"),
+		Server:      rapid.StringMatching(`[a-z][a-z0-9.-]{0,30}`).Draw(t, "sqlServer"),
+		Port:        rapid.Int32Range(1024, 65535).Draw(t, "sqlPort"),
+		Database:    rapid.StringMatching(`[a-z][a-z0-9_]{0,20}`).Draw(t, "sqlDB"),
+		Login:       rapid.StringMatching(`[a-z][a-z0-9_]{0,20}`).Draw(t, "sqlLogin"),
 		PasswordRef: genSecretRef(t),
 	}
 }
@@ -204,15 +204,20 @@ func TestAllClientsInConfig(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		clientsConf := files["clients.conf"]
-		for _, c := range clients {
-			if !strings.Contains(clientsConf, "client "+c.Name+" {") {
-				t.Fatalf("client %q not found", c.Name)
+		// Collect all client content from shard files
+		var allShardContent string
+		for k, v := range files {
+			if strings.HasPrefix(k, "clients_") && strings.HasSuffix(k, ".conf") {
+				allShardContent += v
 			}
 		}
-		// +2 for localhost + localhost_v6 probe clients
-		if count := strings.Count(clientsConf, "client "); count != nClients+2 {
-			t.Fatalf("expected %d client blocks (including localhost + localhost_v6), got %d", nClients+2, count)
+		for _, c := range clients {
+			if !strings.Contains(allShardContent, "client "+c.Name+" {") {
+				t.Fatalf("client %q not found in shard files", c.Name)
+			}
+		}
+		if count := strings.Count(allShardContent, "client "); count != nClients {
+			t.Fatalf("expected %d client blocks in shards, got %d", nClients, count)
 		}
 	})
 }
@@ -234,7 +239,7 @@ func TestPolicyPriorityOrdering(t *testing.T) {
 			}
 			usedPriorities[priority] = true
 			policies[i] = PolicySpec{
-				Name: rapid.StringMatching(`[a-z][a-z0-9]{3,10}`).Draw(t, "pname") + int32ToStr(int32(i)),
+				Name:  rapid.StringMatching(`[a-z][a-z0-9]{3,10}`).Draw(t, "pname") + int32ToStr(int32(i)),
 				Stage: stage, Priority: priority, Actions: []PolicyAction{{Type: "accept"}},
 			}
 		}

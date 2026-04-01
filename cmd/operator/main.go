@@ -4,8 +4,6 @@ import (
 	"flag"
 	"os"
 
-	"github.com/go-logr/zapr"
-	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -13,6 +11,7 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/cache"
 	"sigs.k8s.io/controller-runtime/pkg/healthz"
+	crtzap "sigs.k8s.io/controller-runtime/pkg/log/zap"
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 
 	radiusv1alpha1 "github.com/example/freeradius-operator/api/v1alpha1"
@@ -38,14 +37,12 @@ func main() {
 	flag.StringVar(&watchNamespace, "watch-namespace", "", "Namespace to watch (empty = all).")
 	flag.Parse()
 
-	zapCfg := zap.NewProductionConfig()
-	zapCfg.EncoderConfig.TimeKey = "timestamp"
-	zapCfg.EncoderConfig.EncodeTime = zapcore.ISO8601TimeEncoder
-	zapLogger, err := zapCfg.Build()
-	if err != nil {
-		panic(err)
-	}
-	ctrl.SetLogger(zapr.NewLogger(zapLogger))
+	ctrl.SetLogger(crtzap.New(
+		crtzap.JSONEncoder(func(ec *zapcore.EncoderConfig) {
+			ec.TimeKey = "timestamp"
+			ec.EncodeTime = zapcore.ISO8601TimeEncoder
+		}),
+	))
 
 	mgrOpts := ctrl.Options{
 		Scheme:                 scheme,

@@ -1,0 +1,39 @@
+title: FreeRADIUS Kubernetes Operator
+description: Declarative RADIUS infrastructure on Kubernetes
+remote_theme: just-the-docs/just-the-docs@v0.10.0
+
+url: "https://tbotnz.github.io"
+baseurl: "/freeradius-k8s-operator"
+
+permalink: pretty
+
+aux_links:
+  "GitHub":
+    - "https://github.com/tbotnz/freeradius-k8s-operator"
+
+nav_sort: case_insensitive
+heading_anchors: true
+search_enabled: true
+
+back_to_top: true
+back_to_top_text: "Back to top"
+
+footer_content: "Copyright &copy; 2024-2026 tbotnz. Distributed under the <a href=\"https://github.com/tbotnz/freeradius-k8s-operator/blob/master/LICENSE\">Apache 2.0 License</a>."
+
+color_scheme: dark
+
+callouts:
+  warning:
+    title: Warning
+    color: red
+  note:
+    title: Note
+    color: blue
+  tip:
+    title: Tip
+    color: green
+
+plugins:
+  - jekyll-seo-tag
+
+ga_tracking:

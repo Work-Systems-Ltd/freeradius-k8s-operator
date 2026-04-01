@@ -50,12 +50,18 @@ func TestGolden_ClientsConfContainsAllClients(t *testing.T) {
 	}
 	files, err := New().Render(RenderContext{Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"}, Clients: clients})
 	require.NoError(t, err)
+
+	// clients.conf should have $INCLUDE directive for shards
 	c := files["clients.conf"]
+	assert.Contains(t, c, "$INCLUDE clients_000.conf")
+
+	// Client entries should be in the shard file
+	shard := files["clients_000.conf"]
 	for _, cl := range clients {
-		assert.Contains(t, c, "client "+cl.Name+" {")
-		assert.Contains(t, c, "ipaddr = "+cl.IP)
-		assert.Contains(t, c, "${file:/etc/freeradius/secrets/"+cl.SecretRef.Name+"/"+cl.SecretRef.Key+"}")
-		assert.Contains(t, c, "nastype = "+cl.NASType)
+		assert.Contains(t, shard, "client "+cl.Name+" {")
+		assert.Contains(t, shard, cl.IP)
+		assert.Contains(t, shard, "${file:/etc/freeradius/secrets/"+cl.SecretRef.Name+"/"+cl.SecretRef.Key+"}")
+		assert.Contains(t, shard, "nastype = "+cl.NASType)
 	}
 }
 
@@ -69,10 +75,10 @@ func TestGolden_IPv6ClientUsesIpv6addr(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	c := files["clients.conf"]
-	assert.Contains(t, c, "client v4-client {\n    ipaddr = 10.0.1.1")
-	assert.Contains(t, c, "client v6-client {\n    ipv6addr = 2001:db8::1")
-	assert.Contains(t, c, "client v6-mapped {\n    ipv6addr = ::ffff:192.0.2.1")
+	shard := files["clients_000.conf"]
+	assert.Contains(t, shard, "client v4-client {\n    ipaddr = 10.0.1.1")
+	assert.Contains(t, shard, "client v6-client {\n    ipv6addr = 2001:db8::1")
+	assert.Contains(t, shard, "client v6-mapped {\n    ipv6addr = ::ffff:192.0.2.1")
 }
 
 func TestGolden_SitesEnabledContainsAllStages(t *testing.T) {
@@ -105,7 +111,11 @@ func TestGolden_EmptyClientListProducesLocalhostOnly(t *testing.T) {
 	assert.Contains(t, c, "ipaddr = 127.0.0.1")
 	assert.Contains(t, c, "client localhost_v6 {")
 	assert.Contains(t, c, "ipv6addr = ::1")
+	// Only localhost entries in clients.conf (shard file has no extra clients)
 	assert.Equal(t, 2, strings.Count(c, "client "))
+	// Shard file should exist but have no client entries
+	shard := files["clients_000.conf"]
+	assert.NotContains(t, shard, "client ")
 }
 
 func TestGolden_RadiusdConfHasRequiredDirectives(t *testing.T) {

@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,7 @@ func TestEnqueueOwningCluster_RadiusClient(t *testing.T) {
 		client := genRadiusClient(t, clusterRef)
 		client.Namespace = ns
 
-		requests := enqueueOwningCluster(nil, &client)
+		requests := enqueueOwningCluster(context.TODO(), &client)
 
 		assert.Len(t, requests, 1)
 		assert.Equal(t, clusterRef, requests[0].Name)

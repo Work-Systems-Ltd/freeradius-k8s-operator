@@ -9,7 +9,7 @@ GOOS    ?= $(shell go env GOOS)
 
 GOLANGCI_LINT ?= $(shell which golangci-lint 2>/dev/null || echo "$(shell go env GOPATH)/bin/golangci-lint")
 
-.PHONY: generate manifests build test lint dev-up dev-down load-image dev-run
+.PHONY: generate manifests build test lint setup-hooks dev-up dev-down load-image dev-run
 
 ## generate: Run controller-gen to generate DeepCopy methods and other code.
 generate:
@@ -33,6 +33,10 @@ lint: $(GOLANGCI_LINT)
 
 $(GOLANGCI_LINT):
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.64.8
+
+## setup-hooks: Configure git to use the project's pre-commit hook.
+setup-hooks:
+	git config core.hooksPath .githooks
 
 ## dev-up: Start the local kind-in-Docker-Compose development environment.
 dev-up:

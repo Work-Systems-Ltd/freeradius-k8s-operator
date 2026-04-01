@@ -85,9 +85,11 @@ type ModuleConfig struct {
 }
 
 type ClusterSpec struct {
-	Replicas int32
-	Image    string
-	Modules  []ModuleConfig
+	Replicas   int32
+	Image      string
+	Modules    []ModuleConfig
+	CoAEnabled bool
+	CoAPort    int32
 }
 
 type ClientSpec struct {
@@ -171,17 +173,31 @@ func (r *defaultRenderer) Render(ctx RenderContext) (ConfigFiles, error) {
 
 	files := make(ConfigFiles)
 
+	// Shard clients across multiple files
+	shards, err := shardClients(ctx.Clients, defaultShardMaxBytes)
+	if err != nil {
+		return nil, fmt.Errorf("sharding clients: %w", err)
+	}
+
+	for i, shard := range shards {
+		rendered, err := renderClientShard(shard)
+		if err != nil {
+			return nil, fmt.Errorf("rendering client shard %d: %w", i, err)
+		}
+		files[fmt.Sprintf("clients_%03d.conf", i)] = rendered
+	}
+
+	clients, err := renderClients(ctx.Clients, len(shards))
+	if err != nil {
+		return nil, err
+	}
+	files["clients.conf"] = clients
+
 	radiusd, err := renderRadiusd(ctx.Cluster)
 	if err != nil {
 		return nil, err
 	}
 	files["radiusd.conf"] = radiusd
-
-	clients, err := renderClients(ctx.Clients)
-	if err != nil {
-		return nil, err
-	}
-	files["clients.conf"] = clients
 
 	modFiles, err := renderModules(ctx.Cluster.Modules)
 	if err != nil {
@@ -191,7 +207,7 @@ func (r *defaultRenderer) Render(ctx RenderContext) (ConfigFiles, error) {
 		files[k] = v
 	}
 
-	sites, err := renderSites(ctx.Policies)
+	sites, err := renderSites(ctx.Policies, ctx.Cluster.CoAEnabled)
 	if err != nil {
 		return nil, err
 	}

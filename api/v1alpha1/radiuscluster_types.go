@@ -3,6 +3,7 @@ package v1alpha1
 import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 type SecretRef struct {
@@ -86,6 +87,25 @@ type ModuleConfig struct {
 	Redis   *RedisConfig `json:"redis,omitempty"`
 }
 
+type PDBConfig struct {
+	MinAvailable   *intstr.IntOrString `json:"minAvailable,omitempty"`
+	MaxUnavailable *intstr.IntOrString `json:"maxUnavailable,omitempty"`
+}
+
+type ServiceConfig struct {
+	// +kubebuilder:validation:Enum=ClusterIP;LoadBalancer;NodePort
+	// +kubebuilder:default=ClusterIP
+	Type                  corev1.ServiceType                      `json:"type,omitempty"`
+	LoadBalancerIP        string                                  `json:"loadBalancerIP,omitempty"`
+	ExternalTrafficPolicy corev1.ServiceExternalTrafficPolicyType `json:"externalTrafficPolicy,omitempty"`
+	Annotations           map[string]string                       `json:"annotations,omitempty"`
+}
+
+type CoAConfig struct {
+	Enabled bool  `json:"enabled"`
+	Port    int32 `json:"port,omitempty"`
+}
+
 type AutoscalingConfig struct {
 	Enabled                        bool  `json:"enabled"`
 	MinReplicas                    int32 `json:"minReplicas,omitempty"`
@@ -106,19 +126,29 @@ type ProbesConfig struct {
 type RadiusClusterSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default=1
-	Replicas    int32                        `json:"replicas,omitempty"`
-	Image       string                       `json:"image"`
-	Resources   corev1.ResourceRequirements  `json:"resources,omitempty"`
-	Autoscaling *AutoscalingConfig           `json:"autoscaling,omitempty"`
-	TLS         *TLSConfig                   `json:"tls,omitempty"`
-	Probes      *ProbesConfig                `json:"probes,omitempty"`
-	Modules     []ModuleConfig               `json:"modules,omitempty"`
+	Replicas    int32                       `json:"replicas,omitempty"`
+	Image       string                      `json:"image"`
+	Resources   corev1.ResourceRequirements `json:"resources,omitempty"`
+	Autoscaling *AutoscalingConfig          `json:"autoscaling,omitempty"`
+	TLS         *TLSConfig                  `json:"tls,omitempty"`
+	Probes      *ProbesConfig               `json:"probes,omitempty"`
+	Modules     []ModuleConfig              `json:"modules,omitempty"`
+
+	// ISP-scale features
+	PDB                       *PDBConfig                        `json:"pdb,omitempty"`
+	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
+	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`
+	Service                   *ServiceConfig                    `json:"service,omitempty"`
+	CoA                       *CoAConfig                        `json:"coa,omitempty"`
+	InitResources             *corev1.ResourceRequirements      `json:"initResources,omitempty"`
 }
 
 type RadiusClusterStatus struct {
 	ReadyReplicas int32              `json:"readyReplicas,omitempty"`
 	CurrentImage  string             `json:"currentImage,omitempty"`
 	PodRestarts   int32              `json:"podRestarts,omitempty"`
+	ServiceIP     string             `json:"serviceIP,omitempty"`
+	ExternalIPs   []string           `json:"externalIPs,omitempty"`
 	Conditions    []metav1.Condition `json:"conditions,omitempty"`
 }
 

@@ -28,12 +28,22 @@ func ipaddrDirective(ip string) string {
 	return "ipaddr"
 }
 
+// seq returns a slice [0, 1, ..., n-1] for use in range loops.
+func seq(n int) []int {
+	s := make([]int, n)
+	for i := range s {
+		s[i] = i
+	}
+	return s
+}
+
 var funcMap = template.FuncMap{
 	"secretFilePath":    secretFilePath,
 	"secretFilePathPtr": secretFilePathPtr,
 	"ipaddrDirective":   ipaddrDirective,
 	"condition":         buildCondition,
 	"renderAction":      renderActionStr,
+	"seq":               seq,
 }
 
 var tmpl = template.Must(
