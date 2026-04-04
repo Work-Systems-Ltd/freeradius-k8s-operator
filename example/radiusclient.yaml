@@ -1,0 +1,12 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusClient
+metadata:
+  name: core-switch
+  namespace: default
+spec:
+  clusterRef: my-radius
+  ip: 10.0.1.0/24
+  secretRef:
+    name: switch-secret
+    key: shared-secret
+  nasType: cisco

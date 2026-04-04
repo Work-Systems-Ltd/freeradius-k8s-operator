@@ -17,6 +17,7 @@ var (
 	safeRADIUSAttributeRe = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9-]{0,63}$`)
 	safeRADIUSOperatorRe  = regexp.MustCompile(`^(==|!=|>=|<=|>|<|=~|!~|\+?=|:=)$`)
 	safeRADIUSValueRe     = regexp.MustCompile(`^[a-zA-Z0-9 _.@:/-]{0,255}$`)
+	safeRADIUSRegexRe     = regexp.MustCompile(`^[a-zA-Z0-9 _.@:/*+?^|(){}\[\]\\-]{0,255}$`)
 	safeQuotedStringRe    = regexp.MustCompile(`^[^"'` + "`" + `\\$\n\r]*$`)
 )
 
@@ -69,6 +70,10 @@ func ValidateRADIUSOperator(field, value string) error {
 
 func ValidateRADIUSValue(field, value string) error {
 	return matchOrErr(safeRADIUSValueRe, field, value, "contains disallowed characters")
+}
+
+func ValidateRADIUSRegex(field, value string) error {
+	return matchOrErr(safeRADIUSRegexRe, field, value, "contains disallowed characters for regex")
 }
 
 func validateClientSpec(c ClientSpec) error {
@@ -230,6 +235,9 @@ func validateMatchLeaf(leaf MatchLeaf) error {
 	}
 	if err := ValidateRADIUSOperator("match operator", leaf.Operator); err != nil {
 		return err
+	}
+	if leaf.Operator == "=~" || leaf.Operator == "!~" {
+		return ValidateRADIUSRegex("match value", leaf.Value)
 	}
 	return ValidateRADIUSValue("match value", leaf.Value)
 }

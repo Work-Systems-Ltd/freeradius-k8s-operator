@@ -371,7 +371,7 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 	configMapName := cluster.Name + configMapSuffix
 	falseVal := false
 	trueVal := true
-	nobody := int64(65534)
+	freerad := int64(101)
 
 	volumes := []corev1.Volume{
 		{Name: "freeradius-config", VolumeSource: corev1.VolumeSource{
@@ -418,8 +418,9 @@ done`},
 	// Init container that renders clients.conf by querying RadiusClient CRs from the API.
 	// This avoids the ConfigMap 1MB size limit for large client lists (10K+ NAS devices).
 	clientInitContainer := corev1.Container{
-		Name:  "render-clients",
-		Image: r.OperatorImage,
+		Name:            "render-clients",
+		Image:           r.OperatorImage,
+		ImagePullPolicy: corev1.PullIfNotPresent,
 		Command: []string{"/operator",
 			"--mode=render-clients",
 			"--cluster-name=" + cluster.Name,
@@ -434,7 +435,7 @@ done`},
 	}
 
 	mainMounts := []corev1.VolumeMount{
-		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius", ReadOnly: true},
+		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
 	}
 	for _, ref := range secretRefs {
 		mainMounts = append(mainMounts, corev1.VolumeMount{
@@ -486,8 +487,8 @@ done`},
 	podSpec := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsNonRoot: &trueVal,
-			RunAsUser:    &nobody,
-			RunAsGroup:   &nobody,
+			RunAsUser:    &freerad,
+			RunAsGroup:   &freerad,
 		},
 		Affinity:                  affinity,
 		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,
@@ -502,7 +503,7 @@ done`},
 
 func defaultProbes() (*corev1.Probe, *corev1.Probe) {
 	return &corev1.Probe{
-			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"radiusd", "-C"}}},
+			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"freeradius", "-C"}}},
 			InitialDelaySeconds: 10, PeriodSeconds: 30,
 		}, &corev1.Probe{
 			ProbeHandler:        corev1.ProbeHandler{Exec: &corev1.ExecAction{Command: []string{"sh", "-c", "echo 'Message-Authenticator = 0x00' | radclient -x 127.0.0.1:1812 status testing123"}}},

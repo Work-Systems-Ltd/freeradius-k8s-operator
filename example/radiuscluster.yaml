@@ -1,0 +1,21 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: my-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  replicas: 2
+  modules:
+    - name: sql
+      type: rlm_sql
+      enabled: true
+      sql:
+        dialect: postgresql
+        server: db.internal
+        port: 5432
+        database: radius
+        login: radius
+        passwordRef:
+          name: db-credentials
+          key: password

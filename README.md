@@ -27,75 +27,31 @@ Define your RADIUS infrastructure declaratively with three CRDs — `RadiusClust
 kubectl apply -f config/crd/
 ```
 
-### 2. Create a RadiusCluster
+### 2. Apply the example manifests
 
-```yaml
-apiVersion: radius.operator.io/v1alpha1
-kind: RadiusCluster
-metadata:
-  name: my-radius
-  namespace: default
-spec:
-  image: freeradius/freeradius-server:3.2.3
-  replicas: 2
-  modules:
-    - name: sql
-      type: sql
-      enabled: true
-      sql:
-        driver: postgresql
-        server: db.internal
-        port: 5432
-        database: radius
-        credentialsRef:
-          name: db-credentials
-          key: password
+Complete, ready-to-apply examples live in the [`example/`](example/) folder. Deploy them all at once:
+
+```bash
+kubectl apply -f example/
 ```
 
-### 3. Register a RADIUS client (NAS device)
+Or step by step:
 
-```yaml
-apiVersion: radius.operator.io/v1alpha1
-kind: RadiusClient
-metadata:
-  name: core-switch
-  namespace: default
-spec:
-  clusterRef: my-radius
-  ip: 10.0.1.0/24
-  secretRef:
-    name: switch-secret
-    key: shared-secret
-  nasType: cisco
+```bash
+# Create secrets first (database credentials + NAS shared secret)
+kubectl apply -f example/secrets.yaml
+
+# Deploy a RadiusCluster with a SQL module
+kubectl apply -f example/radiuscluster.yaml
+
+# Register a NAS device
+kubectl apply -f example/radiusclient.yaml
+
+# Add a post-auth VLAN assignment policy
+kubectl apply -f example/radiuspolicy.yaml
 ```
 
-### 4. Add an authorization policy
-
-```yaml
-apiVersion: radius.operator.io/v1alpha1
-kind: RadiusPolicy
-metadata:
-  name: vlan-assignment
-  namespace: default
-spec:
-  clusterRef: my-radius
-  stage: post-auth
-  priority: 100
-  match:
-    all:
-      - attribute: User-Name
-        operator: "=~"
-        value: "^admin-"
-  actions:
-    - type: set
-      attribute: Tunnel-Type
-      value: VLAN
-    - type: set
-      attribute: Tunnel-Private-Group-Id
-      value: "100"
-```
-
-### 5. Check status
+### 3. Check status
 
 ```bash
 # Overview of all RADIUS resources

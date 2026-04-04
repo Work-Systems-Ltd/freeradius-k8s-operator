@@ -98,7 +98,11 @@ func buildCondition(match *PolicyMatch) string {
 func joinLeaves(leaves []MatchLeaf, sep string, negate bool) string {
 	wrapped := make([]string, len(leaves))
 	for i, leaf := range leaves {
-		expr := fmt.Sprintf("(%s %s %s)", leaf.Attribute, leaf.Operator, leaf.Value)
+		val := leaf.Value
+		if leaf.Operator == "=~" || leaf.Operator == "!~" {
+			val = "/" + val + "/"
+		}
+		expr := fmt.Sprintf("(%s %s %s)", leaf.Attribute, leaf.Operator, val)
 		if negate {
 			expr = "!" + expr
 		}

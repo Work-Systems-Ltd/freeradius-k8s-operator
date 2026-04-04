@@ -1,0 +1,21 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: vlan-assignment
+  namespace: default
+spec:
+  clusterRef: my-radius
+  stage: post-auth
+  priority: 100
+  match:
+    all:
+      - attribute: User-Name
+        operator: "=~"
+        value: "^admin-"
+  actions:
+    - type: set
+      attribute: Tunnel-Type
+      value: VLAN
+    - type: set
+      attribute: Tunnel-Private-Group-Id
+      value: "100"
