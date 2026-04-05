@@ -8,15 +8,13 @@ import (
 type RadiusClusterSpec struct {
 	// +kubebuilder:validation:Minimum=1
 	// +kubebuilder:default=1
-	Replicas    int32                       `json:"replicas,omitempty"`
-	Image       string                      `json:"image"`
-	Resources   corev1.ResourceRequirements `json:"resources,omitempty"`
-	Autoscaling *AutoscalingConfig          `json:"autoscaling,omitempty"`
-	TLS         *TLSConfig                  `json:"tls,omitempty"`
-	Probes      *ProbesConfig               `json:"probes,omitempty"`
-	Modules     []ModuleConfig              `json:"modules,omitempty"`
-
-	// ISP-scale features
+	Replicas                  int32                             `json:"replicas,omitempty"`
+	Image                     string                            `json:"image"`
+	Resources                 corev1.ResourceRequirements       `json:"resources,omitempty"`
+	Autoscaling               *AutoscalingConfig                `json:"autoscaling,omitempty"`
+	TLS                       *TLSConfig                        `json:"tls,omitempty"`
+	Probes                    *ProbesConfig                     `json:"probes,omitempty"`
+	Modules                   []ModuleConfig                    `json:"modules,omitempty"`
 	PDB                       *PDBConfig                        `json:"pdb,omitempty"`
 	Affinity                  *corev1.Affinity                  `json:"affinity,omitempty"`
 	TopologySpreadConstraints []corev1.TopologySpreadConstraint `json:"topologySpreadConstraints,omitempty"`

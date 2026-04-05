@@ -139,7 +139,6 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Update status fields from deployment
 	deploy := &appsv1.Deployment{}
 	deployName := types.NamespacedName{Namespace: req.Namespace, Name: cluster.Name + deploymentSuffix}
 	if err := r.Get(ctx, deployName, deploy); err == nil {
@@ -153,7 +152,6 @@ func (r *RadiusClusterReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	// Batch final condition updates
 	if err := r.Get(ctx, req.NamespacedName, cluster); err != nil {
 		result = "error"
 		return ctrl.Result{}, err
@@ -212,10 +210,8 @@ func (r *RadiusClusterReconciler) reconcileConfigMap(ctx context.Context, cluste
 	return err
 }
 
-// endpointDef describes a single RADIUS endpoint (auth, acct, or coa) for
-// split-mode deployment. In combined mode a single endpointDef covers all ports.
 type endpointDef struct {
-	role      string // "auth", "acct", "coa", or "" for combined
+	role      string
 	suffix    string
 	ports     []corev1.ServicePort
 	cPorts    []corev1.ContainerPort
@@ -234,7 +230,6 @@ func (r *RadiusClusterReconciler) reconcileDeploymentsAndServices(ctx context.Co
 			return err
 		}
 	}
-	// Clean up stale resources from the other mode
 	return r.cleanupStaleResources(ctx, cluster)
 }
 
@@ -245,7 +240,6 @@ func (r *RadiusClusterReconciler) buildEndpoints(cluster *radiusv1alpha1.RadiusC
 	}
 
 	if cluster.Spec.Services == nil {
-		// Combined mode: single Deployment + Service with all ports
 		ports := []corev1.ServicePort{
 			{Name: "auth", Port: 1812, TargetPort: intstr.FromInt(1812), Protocol: corev1.ProtocolUDP},
 			{Name: "acct", Port: 1813, TargetPort: intstr.FromInt(1813), Protocol: corev1.ProtocolUDP},
@@ -265,7 +259,6 @@ func (r *RadiusClusterReconciler) buildEndpoints(cluster *radiusv1alpha1.RadiusC
 		}}
 	}
 
-	// Split mode: independent Deployments per function
 	var eps []endpointDef
 	svcs := cluster.Spec.Services
 
@@ -300,12 +293,11 @@ func (r *RadiusClusterReconciler) buildEndpoints(cluster *radiusv1alpha1.RadiusC
 }
 
 func (r *RadiusClusterReconciler) cleanupStaleResources(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
-	// When switching between combined and split mode, delete resources from the other mode
 	var staleSuffixes []string
 	if cluster.Spec.Services != nil {
-		staleSuffixes = []string{deploymentSuffix} // combined-mode resources
+		staleSuffixes = []string{deploymentSuffix}
 	} else {
-		staleSuffixes = []string{"-freeradius-auth", "-freeradius-acct", "-freeradius-coa"} // split-mode resources
+		staleSuffixes = []string{"-freeradius-auth", "-freeradius-acct", "-freeradius-coa"}
 	}
 
 	for _, suffix := range staleSuffixes {
@@ -395,9 +387,6 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 	}
 
-	// First init container: copy stock FreeRADIUS config from the image into the
-	// shared emptyDir so that base files (dictionary, policy.d/, mods-config/, etc.)
-	// are present before the operator overlays its generated config.
 	stockCopyContainer := corev1.Container{
 		Name:    "stock-config",
 		Image:   cluster.Spec.Image,
@@ -412,7 +401,6 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 		},
 	}
 
-	// Second init container: overlay operator-generated config on top of the stock files.
 	initContainer := corev1.Container{
 		Name:  "config-init",
 		Image: "docker.io/library/busybox:1.36",
@@ -433,8 +421,6 @@ done`},
 		},
 	}
 
-	// Init container that renders clients.conf by querying RadiusClient CRs from the API.
-	// This avoids the ConfigMap 1MB size limit for large client lists (10K+ NAS devices).
 	clientInitContainer := corev1.Container{
 		Name:            "render-clients",
 		Image:           r.OperatorImage,
@@ -483,7 +469,6 @@ done`},
 		ReadinessProbe:  readiness,
 	}
 
-	// Anti-affinity: use explicit config or default to spread across nodes when replicas > 1
 	var affinity *corev1.Affinity
 	if cluster.Spec.Affinity != nil {
 		affinity = cluster.Spec.Affinity
@@ -611,7 +596,6 @@ func (r *RadiusClusterReconciler) reconcileOneHPA(ctx context.Context, cluster *
 func (r *RadiusClusterReconciler) reconcilePDB(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
 	pdbName := types.NamespacedName{Namespace: cluster.Namespace, Name: cluster.Name + pdbSuffix}
 
-	// Delete PDB if explicitly disabled or single replica
 	if cluster.Spec.PDB == nil && cluster.Spec.Replicas <= 1 {
 		existing := &policyv1.PodDisruptionBudget{}
 		if err := r.Get(ctx, pdbName, existing); err == nil {
@@ -632,7 +616,6 @@ func (r *RadiusClusterReconciler) reconcilePDB(ctx context.Context, cluster *rad
 			pdb.Spec.MinAvailable = cluster.Spec.PDB.MinAvailable
 			pdb.Spec.MaxUnavailable = cluster.Spec.PDB.MaxUnavailable
 		} else {
-			// Default: minAvailable=1 when replicas > 1
 			minAvail := intstr.FromInt(1)
 			pdb.Spec.MinAvailable = &minAvail
 		}
@@ -641,10 +624,7 @@ func (r *RadiusClusterReconciler) reconcilePDB(ctx context.Context, cluster *rad
 	return err
 }
 
-// reconcileRBAC creates a ServiceAccount, Role, and RoleBinding so the
-// render-clients init container can read RadiusClient CRs from the API.
 func (r *RadiusClusterReconciler) reconcileRBAC(ctx context.Context, cluster *radiusv1alpha1.RadiusCluster) error {
-	// ServiceAccount
 	sa := &corev1.ServiceAccount{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + serviceAccountSuffix, Namespace: cluster.Namespace}}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, sa, func() error {
 		return ctrl.SetControllerReference(cluster, sa, r.Scheme)
@@ -652,7 +632,6 @@ func (r *RadiusClusterReconciler) reconcileRBAC(ctx context.Context, cluster *ra
 		return err
 	}
 
-	// Role: read RadiusClients
 	role := &rbacv1.Role{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + roleSuffix, Namespace: cluster.Namespace}}
 	if _, err := controllerutil.CreateOrUpdate(ctx, r.Client, role, func() error {
 		if err := ctrl.SetControllerReference(cluster, role, r.Scheme); err != nil {
@@ -668,7 +647,6 @@ func (r *RadiusClusterReconciler) reconcileRBAC(ctx context.Context, cluster *ra
 		return err
 	}
 
-	// RoleBinding
 	rb := &rbacv1.RoleBinding{ObjectMeta: metav1.ObjectMeta{Name: cluster.Name + roleBindingSuffix, Namespace: cluster.Namespace}}
 	_, err := controllerutil.CreateOrUpdate(ctx, r.Client, rb, func() error {
 		if err := ctrl.SetControllerReference(cluster, rb, r.Scheme); err != nil {
@@ -695,12 +673,9 @@ func (r *RadiusClusterReconciler) countPodRestarts(ctx context.Context, namespac
 	return total
 }
 
-// computeConfigHash produces a hash of all rendered config files and client specs.
-// When this hash changes, the pod template annotation changes, triggering a rolling restart.
 func computeConfigHash(files renderer.ConfigFiles, clients []radiusv1alpha1.RadiusClient) string {
 	h := sha256.New()
 
-	// Hash rendered config files in deterministic order
 	keys := make([]string, 0, len(files))
 	for k := range files {
 		keys = append(keys, k)
@@ -711,7 +686,6 @@ func computeConfigHash(files renderer.ConfigFiles, clients []radiusv1alpha1.Radi
 		h.Write([]byte(files[k]))
 	}
 
-	// Hash client specs (these are rendered by the init container, not in ConfigMap)
 	for _, c := range clients {
 		h.Write([]byte(c.Name))
 		h.Write([]byte(c.Spec.IP))
@@ -727,7 +701,6 @@ func initContainerResources(cluster *radiusv1alpha1.RadiusCluster) corev1.Resour
 	if cluster.Spec.InitResources != nil {
 		return *cluster.Spec.InitResources
 	}
-	// Default: small resources, suitable for most deployments
 	return corev1.ResourceRequirements{
 		Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
 		Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
@@ -742,9 +715,6 @@ func podLabels(clusterName string) map[string]string {
 	}
 }
 
-// endpointLabels returns pod labels for a specific endpoint role.
-// In combined mode (role=""), returns the base podLabels.
-// In split mode, adds a role label so Services can select the right Deployment.
 func endpointLabels(clusterName, role string) map[string]string {
 	labels := podLabels(clusterName)
 	if role != "" {

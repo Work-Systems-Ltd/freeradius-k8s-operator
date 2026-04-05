@@ -11,9 +11,6 @@ import (
 	"github.com/example/freeradius-operator/internal/renderer"
 )
 
-// renderClientsToFile queries RadiusClient CRs matching the given cluster and
-// renders clients.conf to the specified output path. This is called by the
-// init container at pod startup, avoiding the ConfigMap 1MB size limit.
 func renderClientsToFile(ctx context.Context, k8sClient client.Reader, namespace, clusterName, outputPath string) error {
 	list := &radiusv1alpha1.RadiusClientList{}
 	if err := k8sClient.List(ctx, list, client.InNamespace(namespace)); err != nil {

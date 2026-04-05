@@ -35,17 +35,13 @@ func setCondition(conditions *[]metav1.Condition, condType string, status metav1
 	})
 }
 
-// SetConditionLocal sets a condition in-place without persisting.
 func (r *StatusReporter) SetConditionLocal(conditions *[]metav1.Condition, condType string, value bool, reason, msg string) {
 	setCondition(conditions, condType, boolToStatus(value), reason, msg)
 }
 
-// FlushClusterStatus persists the current cluster status.
 func (r *StatusReporter) FlushClusterStatus(ctx context.Context, cluster *v1alpha1.RadiusCluster) error {
 	return r.client.Status().Update(ctx, cluster)
 }
-
-// RadiusCluster conditions
 
 func (r *StatusReporter) SetProgressing(ctx context.Context, cluster *v1alpha1.RadiusCluster, progressing bool) error {
 	reason, msg := "ReconcileComplete", "Reconciliation completed successfully"
@@ -73,8 +69,6 @@ func (r *StatusReporter) UpdateClusterStatus(ctx context.Context, cluster *v1alp
 	return r.client.Status().Update(ctx, cluster)
 }
 
-// RadiusClient conditions
-
 func (r *StatusReporter) SetClientReady(ctx context.Context, rc *v1alpha1.RadiusClient, ready bool, reason, msg string) error {
 	setCondition(&rc.Status.Conditions, ConditionReady, boolToStatus(ready), reason, msg)
 	return r.client.Status().Update(ctx, rc)
@@ -84,8 +78,6 @@ func (r *StatusReporter) SetClientInvalid(ctx context.Context, rc *v1alpha1.Radi
 	setCondition(&rc.Status.Conditions, ConditionInvalid, boolToStatus(invalid), reason, msg)
 	return r.client.Status().Update(ctx, rc)
 }
-
-// RadiusPolicy conditions
 
 func (r *StatusReporter) SetPolicyReady(ctx context.Context, policy *v1alpha1.RadiusPolicy, ready bool, reason, msg string) error {
 	setCondition(&policy.Status.Conditions, ConditionReady, boolToStatus(ready), reason, msg)

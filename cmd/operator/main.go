@@ -41,7 +41,6 @@ func main() {
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "Health probe bind address.")
 	flag.StringVar(&watchNamespace, "watch-namespace", "", "Namespace to watch (empty = all).")
 
-	// render-clients flags
 	var clusterName, namespace, outputPath string
 	flag.StringVar(&clusterName, "cluster-name", "", "RadiusCluster name (render-clients mode).")
 	flag.StringVar(&namespace, "namespace", "", "Namespace (render-clients mode).")

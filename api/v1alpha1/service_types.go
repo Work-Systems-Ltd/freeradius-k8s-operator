@@ -17,9 +17,6 @@ type CoAConfig struct {
 	Port    int32 `json:"port,omitempty"`
 }
 
-// ServiceEndpointConfig configures an independent Service + Deployment for a
-// specific RADIUS function (auth, accounting, or CoA). When spec.services is
-// set, each function gets its own pods and IP so they can scale independently.
 type ServiceEndpointConfig struct {
 	ServiceConfig `json:",inline"`
 	// +kubebuilder:validation:Minimum=1
@@ -28,9 +25,6 @@ type ServiceEndpointConfig struct {
 	Autoscaling *AutoscalingConfig `json:"autoscaling,omitempty"`
 }
 
-// ServicesConfig splits auth, accounting, and CoA into independent Deployments
-// and Services. When set, spec.replicas, spec.autoscaling, and spec.service
-// are ignored in favor of per-endpoint configuration.
 type ServicesConfig struct {
 	Auth       *ServiceEndpointConfig `json:"auth,omitempty"`
 	Accounting *ServiceEndpointConfig `json:"accounting,omitempty"`
