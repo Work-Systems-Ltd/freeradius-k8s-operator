@@ -66,6 +66,16 @@ type RedisConfig struct {
 	PasswordRef *SecretRef `json:"passwordRef,omitempty"`
 }
 
+type FilesConfig struct {
+	// Key is the RADIUS attribute used for user lookup.
+	// Defaults to FreeRADIUS default if empty.
+	Key string `json:"key,omitempty"`
+	// Authorize contains Livingston-style user entries for authentication.
+	Authorize string `json:"authorize,omitempty"`
+	// Accounting contains user entries for accounting rules.
+	Accounting string `json:"accounting,omitempty"`
+}
+
 type ModuleConfig struct {
 	Name      string       `json:"name"`
 	Type      string       `json:"type"`
@@ -75,5 +85,6 @@ type ModuleConfig struct {
 	EAP       *EAPConfig   `json:"eap,omitempty"`
 	REST      *RESTConfig  `json:"rest,omitempty"`
 	Redis     *RedisConfig `json:"redis,omitempty"`
+	Files     *FilesConfig `json:"files,omitempty"`
 	RawConfig string       `json:"rawConfig,omitempty"`
 }

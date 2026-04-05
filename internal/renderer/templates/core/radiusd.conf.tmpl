@@ -51,8 +51,20 @@ thread pool {
     auto_limit_acct = no
 }
 
+$INCLUDE proxy.conf
 $INCLUDE clients.conf
-$INCLUDE mods-enabled/
+
+modules {
+    $INCLUDE mods-enabled/
+}
+
+instantiate {
+}
+
+policy {
+    $INCLUDE policy.d/
+}
+
 $INCLUDE sites-enabled/
 
 listen {

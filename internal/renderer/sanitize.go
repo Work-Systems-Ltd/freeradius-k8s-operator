@@ -190,6 +190,13 @@ func validateRedisConfig(cfg *RedisConfig) error {
 	return ValidateHostname("Redis server", cfg.Server)
 }
 
+func validateFilesConfig(cfg *FilesConfig) error {
+	if cfg.Key != "" {
+		return ValidateQuotedString("files key", cfg.Key)
+	}
+	return nil
+}
+
 func validateModuleConfig(mod ModuleConfig) error {
 	if mod.RawConfig != "" {
 		return nil
@@ -217,6 +224,10 @@ func validateModuleConfig(mod ModuleConfig) error {
 	case "rlm_redis":
 		if mod.Redis != nil {
 			return validateRedisConfig(mod.Redis)
+		}
+	case "rlm_files":
+		if mod.Files != nil {
+			return validateFilesConfig(mod.Files)
 		}
 	}
 	return nil

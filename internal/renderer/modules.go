@@ -17,7 +17,7 @@ var knownModuleTypes = map[string]bool{
 
 var moduleTemplateNames = map[string]string{
 	"rlm_sql": tmplSQL, "rlm_ldap": tmplLDAP, "rlm_eap": tmplEAP,
-	"rlm_rest": tmplREST, "rlm_redis": tmplRedis,
+	"rlm_rest": tmplREST, "rlm_redis": tmplRedis, "rlm_files": tmplFiles,
 }
 
 func renderModules(modules []ModuleConfig) (ConfigFiles, error) {
@@ -34,6 +34,16 @@ func renderModules(modules []ModuleConfig) (ConfigFiles, error) {
 			return nil, fmt.Errorf("rendering module %q (type %s): %w", mod.Name, mod.Type, err)
 		}
 		files["mods-enabled/"+mod.Name] = content
+
+		// Emit data files for the files module
+		if mod.Type == "rlm_files" && mod.Files != nil {
+			if mod.Files.Authorize != "" {
+				files["mods-config/"+mod.Name+"/authorize"] = mod.Files.Authorize
+			}
+			if mod.Files.Accounting != "" {
+				files["mods-config/"+mod.Name+"/accounting"] = mod.Files.Accounting
+			}
+		}
 	}
 	return files, nil
 }
@@ -52,7 +62,7 @@ func renderModule(mod ModuleConfig) (string, error) {
 	cfgMissing := map[string]bool{
 		"rlm_sql": mod.SQL == nil, "rlm_ldap": mod.LDAP == nil,
 		"rlm_eap": mod.EAP == nil, "rlm_rest": mod.REST == nil,
-		"rlm_redis": mod.Redis == nil,
+		"rlm_redis": mod.Redis == nil, "rlm_files": mod.Files == nil,
 	}
 	if cfgMissing[mod.Type] {
 		return "", fmt.Errorf("%s module %q missing config", mod.Type, mod.Name)

@@ -1,0 +1,6 @@
+files {{ .Name }} {
+    moddir = ${modconfdir}/${.:instance}
+{{ if .Files.Key }}    key = "{{ .Files.Key }}"
+{{ end }}    filename = ${moddir}/authorize
+    acctusersfile = ${moddir}/accounting
+}

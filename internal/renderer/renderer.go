@@ -73,6 +73,12 @@ type RedisConfig struct {
 	PasswordRef *SecretRef
 }
 
+type FilesConfig struct {
+	Key        string
+	Authorize  string
+	Accounting string
+}
+
 type ModuleConfig struct {
 	Name      string
 	Type      string
@@ -82,6 +88,7 @@ type ModuleConfig struct {
 	EAP       *EAPConfig
 	REST      *RESTConfig
 	Redis     *RedisConfig
+	Files     *FilesConfig
 	RawConfig string
 }
 

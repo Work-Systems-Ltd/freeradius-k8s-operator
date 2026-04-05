@@ -9,4 +9,5 @@ const (
 	tmplEAP     = "eap.tmpl"
 	tmplREST    = "rest.tmpl"
 	tmplRedis   = "redis.tmpl"
+	tmplFiles   = "files.tmpl"
 )

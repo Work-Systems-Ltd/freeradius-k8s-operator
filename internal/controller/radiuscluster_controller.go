@@ -853,6 +853,11 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 				mod.Redis.PasswordRef = &renderer.SecretRef{Name: m.Redis.PasswordRef.Name, Key: m.Redis.PasswordRef.Key}
 			}
 		}
+		if m.Files != nil {
+			mod.Files = &renderer.FilesConfig{
+				Key: m.Files.Key, Authorize: m.Files.Authorize, Accounting: m.Files.Accounting,
+			}
+		}
 		modules = append(modules, mod)
 	}
 
