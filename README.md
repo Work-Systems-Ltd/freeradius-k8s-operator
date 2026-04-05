@@ -29,26 +29,21 @@ kubectl apply -f config/crd/
 
 ### 2. Apply the example manifests
 
-Complete, ready-to-apply examples live in the [`example/`](example/) folder. Deploy them all at once:
+Ready-to-apply examples live in the [`example/`](example/) folder, organized by scenario:
+
+| Example | Description |
+|---------|-------------|
+| [`basic/`](example/basic/) | SQL-backed auth with VLAN assignment policy |
+| [`rest-api/`](example/rest-api/) | Authentication via an external REST API |
+| [`ldap/`](example/ldap/) | LDAP / Active Directory authentication |
+| [`ha-redundant/`](example/ha-redundant/) | Redundant SQL failover with autoscaling and PDB |
+| [`split-mode/`](example/split-mode/) | Independent scaling for auth, accounting, and CoA |
+| [`raw-override/`](example/raw-override/) | Escape hatch for custom modules and raw unlang |
+
+Deploy the basic example:
 
 ```bash
-kubectl apply -f example/
-```
-
-Or step by step:
-
-```bash
-# Create secrets first (database credentials + NAS shared secret)
-kubectl apply -f example/secrets.yaml
-
-# Deploy a RadiusCluster with a SQL module
-kubectl apply -f example/radiuscluster.yaml
-
-# Register a NAS device
-kubectl apply -f example/radiusclient.yaml
-
-# Add a post-auth VLAN assignment policy
-kubectl apply -f example/radiuspolicy.yaml
+kubectl apply -f example/basic/
 ```
 
 ### 3. Check status
@@ -61,10 +56,10 @@ kubectl get radiusclusters,radiusclients,radiuspolicies
 kubectl get radiuscluster my-radius -o wide
 
 # View rendered FreeRADIUS configuration
-kubectl get configmap my-radius-config -o yaml
+kubectl get configmap my-radius-freeradius-config -o yaml
 
 # Check pods
-kubectl get pods -l app.kubernetes.io/name=my-radius
+kubectl get pods -l app.kubernetes.io/name=freeradius,app.kubernetes.io/instance=my-radius
 ```
 
 ## Usage
@@ -148,10 +143,10 @@ kubectl get radiuspolicies -o custom-columns=NAME:.metadata.name,READY:.status.c
 kubectl logs deploy/freeradius-operator -f
 
 # View FreeRADIUS pod logs
-kubectl logs -l app.kubernetes.io/name=my-radius
+kubectl logs -l app.kubernetes.io/name=freeradius,app.kubernetes.io/instance=my-radius
 
 # Inspect rendered config
-kubectl get configmap my-radius-config -o jsonpath='{.data.clients\.conf}'
+kubectl get configmap my-radius-freeradius-config -o jsonpath='{.data.clients\.conf}'
 
 # Check operator metrics
 kubectl port-forward deploy/freeradius-operator 8080:8080
