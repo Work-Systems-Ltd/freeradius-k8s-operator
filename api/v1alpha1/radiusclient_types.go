@@ -9,6 +9,7 @@ type RadiusClientSpec struct {
 	SecretRef SecretRef         `json:"secretRef"`
 	NASType   string            `json:"nasType,omitempty"`
 	Metadata  map[string]string `json:"metadata,omitempty"`
+	RawConfig string            `json:"rawConfig,omitempty"`
 }
 
 type RadiusClientStatus struct {

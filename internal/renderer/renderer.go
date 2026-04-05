@@ -74,14 +74,15 @@ type RedisConfig struct {
 }
 
 type ModuleConfig struct {
-	Name    string
-	Type    string
-	Enabled bool
-	SQL     *SQLConfig
-	LDAP    *LDAPConfig
-	EAP     *EAPConfig
-	REST    *RESTConfig
-	Redis   *RedisConfig
+	Name      string
+	Type      string
+	Enabled   bool
+	SQL       *SQLConfig
+	LDAP      *LDAPConfig
+	EAP       *EAPConfig
+	REST      *RESTConfig
+	Redis     *RedisConfig
+	RawConfig string
 }
 
 type ClusterSpec struct {
@@ -97,6 +98,7 @@ type ClientSpec struct {
 	IP        string
 	SecretRef SecretRef
 	NASType   string
+	RawConfig string
 }
 
 type MatchLeaf struct {
@@ -119,11 +121,12 @@ type PolicyAction struct {
 }
 
 type PolicySpec struct {
-	Name     string
-	Stage    string
-	Priority int32
-	Match    *PolicyMatch
-	Actions  []PolicyAction
+	Name      string
+	Stage     string
+	Priority  int32
+	Match     *PolicyMatch
+	Actions   []PolicyAction
+	RawConfig string
 }
 
 type RenderContext struct {

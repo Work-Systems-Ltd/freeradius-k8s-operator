@@ -67,12 +67,13 @@ type RedisConfig struct {
 }
 
 type ModuleConfig struct {
-	Name    string       `json:"name"`
-	Type    string       `json:"type"`
-	Enabled bool         `json:"enabled"`
-	SQL     *SQLConfig   `json:"sql,omitempty"`
-	LDAP    *LDAPConfig  `json:"ldap,omitempty"`
-	EAP     *EAPConfig   `json:"eap,omitempty"`
-	REST    *RESTConfig  `json:"rest,omitempty"`
-	Redis   *RedisConfig `json:"redis,omitempty"`
+	Name      string       `json:"name"`
+	Type      string       `json:"type"`
+	Enabled   bool         `json:"enabled"`
+	SQL       *SQLConfig   `json:"sql,omitempty"`
+	LDAP      *LDAPConfig  `json:"ldap,omitempty"`
+	EAP       *EAPConfig   `json:"eap,omitempty"`
+	REST      *RESTConfig  `json:"rest,omitempty"`
+	Redis     *RedisConfig `json:"redis,omitempty"`
+	RawConfig string       `json:"rawConfig,omitempty"`
 }

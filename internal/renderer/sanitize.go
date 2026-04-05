@@ -77,6 +77,9 @@ func ValidateRADIUSRegex(field, value string) error {
 }
 
 func validateClientSpec(c ClientSpec) error {
+	if c.RawConfig != "" {
+		return nil
+	}
 	if err := ValidateIdentifier("client name", c.Name); err != nil {
 		return err
 	}
@@ -188,6 +191,9 @@ func validateRedisConfig(cfg *RedisConfig) error {
 }
 
 func validateModuleConfig(mod ModuleConfig) error {
+	if mod.RawConfig != "" {
+		return nil
+	}
 	if err := ValidateIdentifier("module name", mod.Name); err != nil {
 		return err
 	}
@@ -243,6 +249,9 @@ func validateMatchLeaf(leaf MatchLeaf) error {
 }
 
 func validatePolicySpec(p PolicySpec) error {
+	if p.RawConfig != "" {
+		return nil
+	}
 	if p.Match != nil {
 		for _, leaf := range append(append(p.Match.All, p.Match.Any...), p.Match.None...) {
 			if err := validateMatchLeaf(leaf); err != nil {

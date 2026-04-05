@@ -26,7 +26,7 @@ func renderModules(modules []ModuleConfig) (ConfigFiles, error) {
 		if !mod.Enabled {
 			continue
 		}
-		if !knownModuleTypes[mod.Type] {
+		if mod.RawConfig == "" && !knownModuleTypes[mod.Type] {
 			return nil, &InvalidModuleError{ModuleType: mod.Type}
 		}
 		content, err := renderModule(mod)
@@ -39,6 +39,10 @@ func renderModules(modules []ModuleConfig) (ConfigFiles, error) {
 }
 
 func renderModule(mod ModuleConfig) (string, error) {
+	if mod.RawConfig != "" {
+		return mod.RawConfig, nil
+	}
+
 	tmplName, hasTemplate := moduleTemplateNames[mod.Type]
 	if !hasTemplate {
 		shortName := strings.TrimPrefix(mod.Type, "rlm_")

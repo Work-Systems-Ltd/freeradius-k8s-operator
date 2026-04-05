@@ -13,10 +13,11 @@ client localhost_v6 {
     nastype = other
 }
 
-{{ range . }}client {{ .Name }} {
+{{ range . }}{{ if .RawConfig }}{{ .RawConfig }}
+{{ else }}client {{ .Name }} {
     {{ ipaddrDirective .IP }} = {{ .IP }}
     secret = $${file:/etc/freeradius/secrets/{{ .SecretRef.Name }}/{{ .SecretRef.Key }}}
     nastype = {{ .NASType }}
 }
-
+{{ end }}
 {{ end }}

@@ -25,10 +25,11 @@ type PolicyAction struct {
 type RadiusPolicySpec struct {
 	ClusterRef string `json:"clusterRef"`
 	// +kubebuilder:validation:Enum=authorize;authenticate;preacct;accounting;post-auth;pre-proxy;post-proxy;session
-	Stage    string         `json:"stage"`
-	Priority int32          `json:"priority"`
-	Match    *PolicyMatch   `json:"match,omitempty"`
-	Actions  []PolicyAction `json:"actions,omitempty"`
+	Stage     string         `json:"stage"`
+	Priority  int32          `json:"priority"`
+	Match     *PolicyMatch   `json:"match,omitempty"`
+	Actions   []PolicyAction `json:"actions,omitempty"`
+	RawConfig string         `json:"rawConfig,omitempty"`
 }
 
 type RadiusPolicyStatus struct {

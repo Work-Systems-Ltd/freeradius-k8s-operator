@@ -3,10 +3,11 @@
 
 server default {
 {{ range .Stages }}    {{ .Name }} {
-{{ range .Policies }}        # priority {{ .Priority }}: {{ .Name }}
+{{ range .Policies }}{{ if .RawConfig }}        {{ .RawConfig }}
+{{ else }}        # priority {{ .Priority }}: {{ .Name }}
         if ({{ condition .Match }}) {
 {{ range .Actions }}{{ renderAction . "            " }}{{ end }}        }
-{{ end }}    }
+{{ end }}{{ end }}    }
 {{ end }}}
 {{- if .CoAEnabled }}
 

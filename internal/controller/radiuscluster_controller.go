@@ -764,7 +764,7 @@ func collectSecretRefs(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1
 func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv1alpha1.RadiusClient, policies []radiusv1alpha1.RadiusPolicy) renderer.RenderContext {
 	modules := make([]renderer.ModuleConfig, 0, len(cluster.Spec.Modules))
 	for _, m := range cluster.Spec.Modules {
-		mod := renderer.ModuleConfig{Name: m.Name, Type: m.Type, Enabled: m.Enabled}
+		mod := renderer.ModuleConfig{Name: m.Name, Type: m.Type, Enabled: m.Enabled, RawConfig: m.RawConfig}
 		if m.SQL != nil {
 			mod.SQL = &renderer.SQLConfig{
 				Dialect: m.SQL.Dialect, Server: m.SQL.Server, Port: m.SQL.Port,
@@ -824,12 +824,13 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 			Name: c.Name, IP: c.Spec.IP,
 			SecretRef: renderer.SecretRef{Name: c.Spec.SecretRef.Name, Key: c.Spec.SecretRef.Key},
 			NASType:   c.Spec.NASType,
+			RawConfig: c.Spec.RawConfig,
 		})
 	}
 
 	renderPolicies := make([]renderer.PolicySpec, 0, len(policies))
 	for _, p := range policies {
-		policy := renderer.PolicySpec{Name: p.Name, Stage: p.Spec.Stage, Priority: p.Spec.Priority}
+		policy := renderer.PolicySpec{Name: p.Name, Stage: p.Spec.Stage, Priority: p.Spec.Priority, RawConfig: p.Spec.RawConfig}
 		if p.Spec.Match != nil {
 			policy.Match = &renderer.PolicyMatch{}
 			for _, leaf := range p.Spec.Match.All {
