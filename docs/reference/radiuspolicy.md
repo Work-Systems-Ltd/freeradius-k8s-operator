@@ -167,8 +167,9 @@ actions:
 
 | Field | Type | Description |
 |:------|:-----|:------------|
-| `type` | enum | `set`, `call`, `reject`, `accept` |
+| `type` | enum | `set`, `call`, `reject`, `accept`, `redundant`, `load-balance` |
 | `module` | string | Module name (only for `call` type) |
+| `modules` | string[] | Module names (only for `redundant` and `load-balance` types) |
 | `attribute` | string | RADIUS attribute (only for `set` type) |
 | `value` | string | Attribute value (only for `set` type) |
 
@@ -180,6 +181,28 @@ actions:
 | `call` | Invoke a named module | `module` |
 | `reject` | Reject the request immediately | — |
 | `accept` | Accept the request immediately | — |
+| `redundant` | Try modules in order, stop at first success | `modules` |
+| `load-balance` | Distribute requests across modules | `modules` |
+
+### `rawConfig`
+
+Raw FreeRADIUS unlang that replaces the generated `if/action` block entirely. When set, `match` and `actions` are ignored. `stage` and `priority` are still used for placement and ordering.
+
+```yaml
+spec:
+  clusterRef: production
+  stage: authorize
+  priority: 5
+  rawConfig: |
+    if (&Calling-Station-Id && !&User-Password) {
+        update control {
+            Auth-Type := Accept
+        }
+    }
+```
+
+!!! warning
+    Raw config is not validated by the operator. You are responsible for correct FreeRADIUS syntax.
 
 ## Status
 
@@ -258,4 +281,64 @@ spec:
     - type: set
       attribute: Tunnel-Private-Group-Id
       value: "200"
+```
+
+### Redundant SQL failover
+
+Try the primary database first; if it fails, fall back to the replica.
+
+```yaml
+spec:
+  stage: authorize
+  priority: 10
+  actions:
+    - type: redundant
+      modules:
+        - sql-primary
+        - sql-replica
+```
+
+Renders to:
+
+```
+redundant {
+    sql-primary
+    sql-replica
+}
+```
+
+### Load-balance across modules
+
+Distribute accounting writes across multiple database shards.
+
+```yaml
+spec:
+  stage: accounting
+  priority: 10
+  actions:
+    - type: load-balance
+      modules:
+        - sql-shard1
+        - sql-shard2
+        - sql-shard3
+```
+
+### Raw unlang for MAC authentication bypass
+
+Use `rawConfig` when the CRD's match/action model isn't expressive enough.
+
+```yaml
+spec:
+  stage: authorize
+  priority: 1
+  rawConfig: |
+    if (&Calling-Station-Id && !&User-Password) {
+        update control {
+            Auth-Type := Accept
+        }
+        update reply {
+            Tunnel-Type := VLAN
+            Tunnel-Private-Group-Id := "100"
+        }
+    }
 ```

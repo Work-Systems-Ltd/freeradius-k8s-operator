@@ -68,6 +68,7 @@ nav:
     - RadiusPolicy: reference/radiuspolicy.md
   - Guides:
     - guides/index.md
+    - Writing Policies: guides/policy.md
     - Modules: guides/modules.md
     - Autoscaling: guides/autoscaling.md
     - TLS Configuration: guides/tls.md

@@ -452,6 +452,15 @@ done`},
 		},
 	}
 
+	renderClientsMounts := []corev1.VolumeMount{
+		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
+	}
+	for _, ref := range secretRefs {
+		renderClientsMounts = append(renderClientsMounts, corev1.VolumeMount{
+			Name: "secret-" + ref.Name, MountPath: "/etc/freeradius/secrets/" + ref.Name, ReadOnly: true,
+		})
+	}
+
 	clientInitContainer := corev1.Container{
 		Name:            "render-clients",
 		Image:           r.OperatorImage,
@@ -462,9 +471,7 @@ done`},
 			"--namespace=" + cluster.Namespace,
 			"--output=/etc/freeradius/clients.conf",
 		},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
-		},
+		VolumeMounts:    renderClientsMounts,
 		SecurityContext: restrictedSC,
 		Resources:       initContainerResources(cluster),
 	}

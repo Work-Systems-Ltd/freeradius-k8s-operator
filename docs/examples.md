@@ -1,45 +1,23 @@
 # Examples
 
-Complete deployment scenarios you can adapt to your environment.
+Complete deployment scenarios you can adapt to your environment. Ready-to-apply manifests are in the [`example/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example) directory:
 
----
-
-## Minimal Deployment
-
-The simplest possible deployment — a single FreeRADIUS pod with no modules, no clients, and no policies. Useful for verifying the operator is working.
-
-```yaml
-apiVersion: radius.operator.io/v1alpha1
-kind: RadiusCluster
-metadata:
-  name: minimal
-  namespace: radius
-spec:
-  image: freeradius/freeradius-server:3.2.3
-  replicas: 1
-```
+| Example | Description |
+|:--------|:------------|
+| [`basic/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/basic) | SQL-backed auth with VLAN assignment policy |
+| [`rest-api/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/rest-api) | Authentication via an external REST API |
+| [`ldap/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/ldap) | LDAP / Active Directory authentication |
+| [`ha-redundant/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/ha-redundant) | Redundant SQL failover with autoscaling and PDB |
+| [`split-mode/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/split-mode) | Independent scaling for auth, accounting, and CoA |
+| [`raw-override/`](https://github.com/Work-Systems-Ltd/freeradius-k8s-operator/tree/master/example/raw-override) | Escape hatch for custom modules and raw unlang |
 
 ```bash
-kubectl create namespace radius
+# Deploy the basic example
 kubectl apply -f config/crd/
-kubectl apply -f - <<EOF
-apiVersion: radius.operator.io/v1alpha1
-kind: RadiusCluster
-metadata:
-  name: minimal
-  namespace: radius
-spec:
-  image: freeradius/freeradius-server:3.2.3
-  replicas: 1
-EOF
+kubectl apply -f example/basic/
 ```
 
-Verify:
-
-```bash
-kubectl get rc minimal -n radius
-kubectl get pods -n radius
-```
+The scenarios below show more advanced patterns.
 
 ---
 
