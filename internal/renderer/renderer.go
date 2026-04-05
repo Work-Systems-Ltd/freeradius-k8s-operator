@@ -85,12 +85,42 @@ type ModuleConfig struct {
 	RawConfig string
 }
 
+type RadiusdLogConfig struct {
+	Destination  string
+	Auth         bool
+	AuthBadpass  bool
+	AuthGoodpass bool
+}
+
+type RadiusdSecurityConfig struct {
+	MaxAttributes int32
+	RejectDelay   int32
+}
+
+type RadiusdThreadPool struct {
+	StartServers         int32
+	MaxServers           int32
+	MinSpareServers      int32
+	MaxSpareServers      int32
+	MaxRequestsPerServer int32
+}
+
+type RadiusdConfig struct {
+	Log            RadiusdLogConfig
+	Security       RadiusdSecurityConfig
+	ThreadPool     RadiusdThreadPool
+	MaxRequestTime int32
+	MaxRequests    int32
+	RawConfig      string
+}
+
 type ClusterSpec struct {
 	Replicas   int32
 	Image      string
 	Modules    []ModuleConfig
 	CoAEnabled bool
 	CoAPort    int32
+	Radiusd    RadiusdConfig
 }
 
 type ClientSpec struct {

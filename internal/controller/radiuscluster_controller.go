@@ -410,6 +410,16 @@ true`},
 		},
 	}
 
+	configInitMounts := []corev1.VolumeMount{
+		{Name: "freeradius-config", MountPath: "/config-flat", ReadOnly: true},
+		{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
+	}
+	for _, ref := range secretRefs {
+		configInitMounts = append(configInitMounts, corev1.VolumeMount{
+			Name: "secret-" + ref.Name, MountPath: "/etc/freeradius/secrets/" + ref.Name, ReadOnly: true,
+		})
+	}
+
 	initContainer := corev1.Container{
 		Name:  "config-init",
 		Image: "docker.io/library/busybox:1.36",
@@ -418,11 +428,23 @@ for f in *; do
   target=$(echo "$f" | sed 's/__/\//g')
   mkdir -p "/etc/freeradius/$(dirname "$target")"
   cp "$f" "/etc/freeradius/$target"
+done
+# Resolve ${file:/path} references by substituting with actual file contents
+for cfg in $(find /etc/freeradius -name '*.conf' -o -name 'sql' -o -name 'ldap' -o -name 'rest' -o -name 'redis' -o -name 'eap'); do
+  if grep -q '${file:' "$cfg" 2>/dev/null; then
+    tmp="$cfg.tmp"
+    cp "$cfg" "$tmp"
+    grep -o '${file:[^}]*}' "$tmp" | sort -u | while read -r ref; do
+      path=$(echo "$ref" | sed 's/${file:\(.*\)}/\1/')
+      if [ -f "$path" ]; then
+        val=$(cat "$path" | tr -d '\n')
+        sed -i "s|\${file:${path}}|${val}|g" "$tmp"
+      fi
+    done
+    mv "$tmp" "$cfg"
+  fi
 done`},
-		VolumeMounts: []corev1.VolumeMount{
-			{Name: "freeradius-config", MountPath: "/config-flat", ReadOnly: true},
-			{Name: "freeradius-config-rendered", MountPath: "/etc/freeradius"},
-		},
+		VolumeMounts:    configInitMounts,
 		SecurityContext: restrictedSC,
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
@@ -857,7 +879,7 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 		renderPolicies = append(renderPolicies, policy)
 	}
 
-	clusterSpec := renderer.ClusterSpec{Replicas: cluster.Spec.Replicas, Image: cluster.Spec.Image, Modules: modules}
+	clusterSpec := renderer.ClusterSpec{Replicas: cluster.Spec.Replicas, Image: cluster.Spec.Image, Modules: modules, Radiusd: buildRadiusdConfig(cluster)}
 	if cluster.Spec.CoA != nil && cluster.Spec.CoA.Enabled {
 		clusterSpec.CoAEnabled = true
 		clusterSpec.CoAPort = cluster.Spec.CoA.Port
@@ -871,6 +893,42 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 		Clients:  renderClients,
 		Policies: renderPolicies,
 	}
+}
+
+func buildRadiusdConfig(cluster *radiusv1alpha1.RadiusCluster) renderer.RadiusdConfig {
+	r := cluster.Spec.Radiusd
+	if r == nil {
+		return renderer.RadiusdConfig{}
+	}
+	cfg := renderer.RadiusdConfig{
+		MaxRequestTime: r.MaxRequestTime,
+		MaxRequests:    r.MaxRequests,
+		RawConfig:      r.RawConfig,
+	}
+	if r.Log != nil {
+		cfg.Log.Destination = r.Log.Destination
+		if r.Log.Auth != nil {
+			cfg.Log.Auth = *r.Log.Auth
+		}
+		if r.Log.AuthBadpass != nil {
+			cfg.Log.AuthBadpass = *r.Log.AuthBadpass
+		}
+		if r.Log.AuthGoodpass != nil {
+			cfg.Log.AuthGoodpass = *r.Log.AuthGoodpass
+		}
+	}
+	if r.Security != nil {
+		cfg.Security.MaxAttributes = r.Security.MaxAttributes
+		cfg.Security.RejectDelay = r.Security.RejectDelay
+	}
+	if r.ThreadPool != nil {
+		cfg.ThreadPool.StartServers = r.ThreadPool.StartServers
+		cfg.ThreadPool.MaxServers = r.ThreadPool.MaxServers
+		cfg.ThreadPool.MinSpareServers = r.ThreadPool.MinSpareServers
+		cfg.ThreadPool.MaxSpareServers = r.ThreadPool.MaxSpareServers
+		cfg.ThreadPool.MaxRequestsPerServer = r.ThreadPool.MaxRequestsPerServer
+	}
+	return cfg
 }
 
 func isInvalidError(err error) bool {

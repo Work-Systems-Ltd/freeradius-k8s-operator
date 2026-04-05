@@ -460,6 +460,110 @@ func TestPolicyInCorrectStage(t *testing.T) {
 	})
 }
 
+func TestRadiusdCustomThreadPool(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{
+			Replicas: 1, Image: "freeradius:3.2.3",
+			Radiusd: RadiusdConfig{
+				ThreadPool: RadiusdThreadPool{
+					StartServers: 10, MaxServers: 64,
+					MinSpareServers: 5, MaxSpareServers: 20,
+				},
+				MaxRequestTime: 60,
+				MaxRequests:    32768,
+			},
+		},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf := files["radiusd.conf"]
+	for _, expected := range []string{
+		"start_servers = 10",
+		"max_servers = 64",
+		"min_spare_servers = 5",
+		"max_spare_servers = 20",
+		"max_request_time = 60",
+		"max_requests = 32768",
+	} {
+		if !strings.Contains(conf, expected) {
+			t.Fatalf("expected %q in radiusd.conf", expected)
+		}
+	}
+}
+
+func TestRadiusdDefaults(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf := files["radiusd.conf"]
+	for _, expected := range []string{
+		"start_servers = 5",
+		"max_servers = 32",
+		"max_request_time = 30",
+		"max_requests = 16384",
+		"destination = stdout",
+		"auth = yes",
+		"max_attributes = 200",
+	} {
+		if !strings.Contains(conf, expected) {
+			t.Fatalf("expected default %q in radiusd.conf", expected)
+		}
+	}
+}
+
+func TestRadiusdLogConfig(t *testing.T) {
+	r := New()
+	authBadpass := true
+	ctx := RenderContext{
+		Cluster: ClusterSpec{
+			Replicas: 1, Image: "freeradius:3.2.3",
+			Radiusd: RadiusdConfig{
+				Log: RadiusdLogConfig{
+					Destination: "syslog",
+					AuthBadpass: authBadpass,
+				},
+			},
+		},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	conf := files["radiusd.conf"]
+	if !strings.Contains(conf, "destination = syslog") {
+		t.Fatal("expected syslog destination")
+	}
+	if !strings.Contains(conf, "auth_badpass = yes") {
+		t.Fatal("expected auth_badpass = yes")
+	}
+}
+
+func TestRadiusdRawConfigOverride(t *testing.T) {
+	r := New()
+	raw := "# fully custom radiusd.conf\nname = freeradius\n"
+	ctx := RenderContext{
+		Cluster: ClusterSpec{
+			Replicas: 1, Image: "freeradius:3.2.3",
+			Radiusd: RadiusdConfig{RawConfig: raw},
+		},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if files["radiusd.conf"] != raw {
+		t.Fatal("expected raw config override")
+	}
+}
+
 func TestRedundantAction(t *testing.T) {
 	r := New()
 	ctx := RenderContext{

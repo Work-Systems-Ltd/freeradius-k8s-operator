@@ -21,6 +21,7 @@ type RadiusClusterSpec struct {
 	Service                   *ServiceConfig                    `json:"service,omitempty"`
 	Services                  *ServicesConfig                   `json:"services,omitempty"`
 	CoA                       *CoAConfig                        `json:"coa,omitempty"`
+	Radiusd                   *RadiusdConfig                    `json:"radiusd,omitempty"`
 	InitResources             *corev1.ResourceRequirements      `json:"initResources,omitempty"`
 }
 

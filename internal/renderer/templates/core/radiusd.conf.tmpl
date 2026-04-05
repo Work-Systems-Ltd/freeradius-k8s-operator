@@ -4,47 +4,50 @@
 name = freeradius
 
 prefix = /usr
-exec_prefix = ${prefix}
+exec_prefix = /usr
+sysconfdir = /etc
 localstatedir = /var
 sbindir = ${exec_prefix}/sbin
 logdir = /var/log/freeradius
 raddbdir = /etc/freeradius
+radacctdir = ${logdir}/radacct
 confdir = ${raddbdir}
+modconfdir = ${confdir}/mods-config
+certdir = ${confdir}/certs
+cadir = ${confdir}/certs
 run_dir = ${localstatedir}/run/${name}
 db_dir = ${raddbdir}
 libdir = /usr/lib/freeradius
 pidfile = ${run_dir}/${name}.pid
-modconfdir = ${confdir}/mods-config
-certdir = ${confdir}/certs
-cadir = ${confdir}/certs
+checkrad = ${sbindir}/checkrad
 
-max_request_time = 30
+max_request_time = {{ .MaxRequestTime }}
 cleanup_delay = 5
-max_requests = 16384
+max_requests = {{ .MaxRequests }}
 
 status_server = yes
 
 log {
-    destination = stdout
+    destination = {{ .Log.Destination }}
     colourise = no
     stripped_names = no
-    auth = yes
-    auth_badpass = no
-    auth_goodpass = no
+    auth = {{ yesno .Log.Auth }}
+    auth_badpass = {{ yesno .Log.AuthBadpass }}
+    auth_goodpass = {{ yesno .Log.AuthGoodpass }}
 }
 
 security {
-    max_attributes = 200
-    reject_delay = 1
+    max_attributes = {{ .Security.MaxAttributes }}
+    reject_delay = {{ .Security.RejectDelay }}
     status_server = yes
 }
 
 thread pool {
-    start_servers = 5
-    max_servers = 32
-    min_spare_servers = 3
-    max_spare_servers = 10
-    max_requests_per_server = 0
+    start_servers = {{ .ThreadPool.StartServers }}
+    max_servers = {{ .ThreadPool.MaxServers }}
+    min_spare_servers = {{ .ThreadPool.MinSpareServers }}
+    max_spare_servers = {{ .ThreadPool.MaxSpareServers }}
+    max_requests_per_server = {{ .ThreadPool.MaxRequestsPerServer }}
     auto_limit_acct = no
 }
 

@@ -28,12 +28,20 @@ func ipaddrDirective(ip string) string {
 	return "ipaddr"
 }
 
+func yesno(v bool) string {
+	if v {
+		return "yes"
+	}
+	return "no"
+}
+
 var funcMap = template.FuncMap{
 	"secretFilePath":    secretFilePath,
 	"secretFilePathPtr": secretFilePathPtr,
 	"ipaddrDirective":   ipaddrDirective,
 	"condition":         buildCondition,
 	"renderAction":      renderActionStr,
+	"yesno":             yesno,
 }
 
 var tmpl = template.Must(
