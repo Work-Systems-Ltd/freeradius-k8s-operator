@@ -1,0 +1,12 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusClient
+metadata:
+  name: test-nas
+  namespace: default
+spec:
+  clusterRef: my-radius-files
+  ip: "0.0.0.0/0"
+  secretRef:
+    name: nas-secret
+    key: shared-secret
+  nasType: other

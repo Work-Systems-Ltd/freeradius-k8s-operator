@@ -1,11 +1,11 @@
 apiVersion: radius.operator.io/v1alpha1
 kind: RadiusCluster
 metadata:
-  name: my-radius
+  name: my-radius-files
   namespace: default
 spec:
   image: freeradius/freeradius-server:3.2.3
-  replicas: 2
+  replicas: 1
   modules:
     - name: files
       type: rlm_files
@@ -14,6 +14,10 @@ spec:
         authorize: |
           bob  Cleartext-Password := "hello"
                Reply-Message := "Hello, %{User-Name}"
+
+          alice  Cleartext-Password := "welcome"
+                 Service-Type := Framed-User,
+                 Framed-Protocol := PPP
     - name: pap
       type: rlm_pap
       enabled: true
