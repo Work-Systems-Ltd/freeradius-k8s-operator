@@ -166,7 +166,7 @@ func TestSecretVolumeMounts(t *testing.T) {
 				if v.Name == volName {
 					volFound = true
 					assert.Equal(t, ref.Name, v.Secret.SecretName)
-					assert.Equal(t, int32(0400), *v.Secret.DefaultMode)
+					assert.Equal(t, int32(0440), *v.Secret.DefaultMode)
 				}
 			}
 			for _, m := range podSpec.Containers[0].VolumeMounts {
