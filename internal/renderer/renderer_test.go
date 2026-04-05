@@ -460,6 +460,62 @@ func TestPolicyInCorrectStage(t *testing.T) {
 	})
 }
 
+func TestRedundantAction(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Policies: []PolicySpec{{
+			Name: "ha-sql", Stage: "authorize", Priority: 10,
+			Actions: []PolicyAction{{Type: "redundant", Modules: []string{"sql1", "sql2"}}},
+		}},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sites := files["sites-enabled/default"]
+	if !strings.Contains(sites, "redundant {") {
+		t.Fatal("redundant block not found")
+	}
+	if !strings.Contains(sites, "sql1") || !strings.Contains(sites, "sql2") {
+		t.Fatal("modules not found in redundant block")
+	}
+}
+
+func TestLoadBalanceAction(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Policies: []PolicySpec{{
+			Name: "lb-sql", Stage: "accounting", Priority: 10,
+			Actions: []PolicyAction{{Type: "load-balance", Modules: []string{"sql1", "sql2", "sql3"}}},
+		}},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sites := files["sites-enabled/default"]
+	if !strings.Contains(sites, "load-balance {") {
+		t.Fatal("load-balance block not found")
+	}
+}
+
+func TestRedundantRequiresModules(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Policies: []PolicySpec{{
+			Name: "empty", Stage: "authorize", Priority: 10,
+			Actions: []PolicyAction{{Type: "redundant", Modules: []string{}}},
+		}},
+	}
+	_, err := r.Render(ctx)
+	if err == nil {
+		t.Fatal("expected error for empty modules in redundant action")
+	}
+}
+
 func TestModuleRawConfigOverride(t *testing.T) {
 	r := New()
 	rawContent := "linelog raw_logger {\n    filename = /var/log/radius.log\n}\n"
