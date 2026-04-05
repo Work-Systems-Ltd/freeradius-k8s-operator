@@ -15,11 +15,12 @@ type PolicyMatch struct {
 }
 
 type PolicyAction struct {
-	// +kubebuilder:validation:Enum=set;call;reject;accept
-	Type      string `json:"type"`
-	Module    string `json:"module,omitempty"`
-	Attribute string `json:"attribute,omitempty"`
-	Value     string `json:"value,omitempty"`
+	// +kubebuilder:validation:Enum=set;call;reject;accept;redundant;load-balance
+	Type      string   `json:"type"`
+	Module    string   `json:"module,omitempty"`
+	Modules   []string `json:"modules,omitempty"`
+	Attribute string   `json:"attribute,omitempty"`
+	Value     string   `json:"value,omitempty"`
 }
 
 type RadiusPolicySpec struct {

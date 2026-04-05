@@ -37,7 +37,7 @@ func renderSites(policies []PolicySpec, coaEnabled ...bool) (string, error) {
 		}
 		for _, a := range p.Actions {
 			switch a.Type {
-			case "set", "call", "reject", "accept":
+			case "set", "call", "reject", "accept", "redundant", "load-balance":
 			default:
 				return "", &InvalidActionError{ActionType: a.Type}
 			}

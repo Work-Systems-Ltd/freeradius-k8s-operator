@@ -116,6 +116,7 @@ type PolicyMatch struct {
 type PolicyAction struct {
 	Type      string
 	Module    string
+	Modules   []string
 	Attribute string
 	Value     string
 }

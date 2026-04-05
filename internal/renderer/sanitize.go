@@ -231,6 +231,15 @@ func validatePolicyAction(a PolicyAction) error {
 			return err
 		}
 		return ValidateRADIUSValue("set value", a.Value)
+	case "redundant", "load-balance":
+		if len(a.Modules) == 0 {
+			return fmt.Errorf("%s action requires at least one module", a.Type)
+		}
+		for _, m := range a.Modules {
+			if err := ValidateIdentifier("module in "+a.Type, m); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }

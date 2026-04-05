@@ -844,7 +844,7 @@ func buildRenderContext(cluster *radiusv1alpha1.RadiusCluster, clients []radiusv
 			}
 		}
 		for _, a := range p.Spec.Actions {
-			policy.Actions = append(policy.Actions, renderer.PolicyAction{Type: a.Type, Module: a.Module, Attribute: a.Attribute, Value: a.Value})
+			policy.Actions = append(policy.Actions, renderer.PolicyAction{Type: a.Type, Module: a.Module, Modules: a.Modules, Attribute: a.Attribute, Value: a.Value})
 		}
 		renderPolicies = append(renderPolicies, policy)
 	}

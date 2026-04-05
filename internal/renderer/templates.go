@@ -54,7 +54,19 @@ func renderActionStr(action PolicyAction, indent string) string {
 		return indent + "reject\n"
 	case "accept":
 		return indent + "ok\n"
+	case "redundant", "load-balance":
+		return renderGroupAction(action.Type, action.Modules, indent)
 	default:
 		return ""
 	}
+}
+
+func renderGroupAction(keyword string, modules []string, indent string) string {
+	var b strings.Builder
+	b.WriteString(indent + keyword + " {\n")
+	for _, m := range modules {
+		b.WriteString(indent + "    " + m + "\n")
+	}
+	b.WriteString(indent + "}\n")
+	return b.String()
 }
