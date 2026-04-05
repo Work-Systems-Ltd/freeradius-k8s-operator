@@ -16,7 +16,7 @@ client localhost_v6 {
 {{ range . }}{{ if .RawConfig }}{{ .RawConfig }}
 {{ else }}client {{ .Name }} {
     {{ ipaddrDirective .IP }} = {{ .IP }}
-    secret = $${file:/etc/freeradius/secrets/{{ .SecretRef.Name }}/{{ .SecretRef.Key }}}
+    secret = ${file:/etc/freeradius/secrets/{{ .SecretRef.Name }}/{{ .SecretRef.Key }}}
     nastype = {{ .NASType }}
 }
 {{ end }}
