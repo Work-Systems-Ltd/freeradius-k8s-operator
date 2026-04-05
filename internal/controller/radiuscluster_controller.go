@@ -390,7 +390,7 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 	stockCopyContainer := corev1.Container{
 		Name:    "stock-config",
 		Image:   cluster.Spec.Image,
-		Command: []string{"sh", "-c", `cp -a /etc/freeradius/. /config-rendered/`},
+		Command: []string{"sh", "-c", `cp -rL /etc/freeradius/. /config-rendered/ 2>/dev/null; true`},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "freeradius-config-rendered", MountPath: "/config-rendered"},
 		},

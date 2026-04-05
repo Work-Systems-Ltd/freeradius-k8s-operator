@@ -10,6 +10,17 @@ import (
 //go:embed templates/core/*.tmpl templates/mods-enabled/*.tmpl templates/sites-enabled/*.tmpl
 var templateFS embed.FS
 
+const (
+	tmplRadiusd = "radiusd.conf.tmpl"
+	tmplClients = "clients.conf.tmpl"
+	tmplDefault = "default.tmpl"
+	tmplSQL     = "sql.tmpl"
+	tmplLDAP    = "ldap.tmpl"
+	tmplEAP     = "eap.tmpl"
+	tmplREST    = "rest.tmpl"
+	tmplRedis   = "redis.tmpl"
+)
+
 func secretFilePath(ref SecretRef) string {
 	return fmt.Sprintf("${file:/etc/freeradius/secrets/%s/%s}", ref.Name, ref.Key)
 }

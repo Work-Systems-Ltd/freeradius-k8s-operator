@@ -16,8 +16,8 @@ var knownModuleTypes = map[string]bool{
 }
 
 var moduleTemplateNames = map[string]string{
-	"rlm_sql": "sql.tmpl", "rlm_ldap": "ldap.tmpl", "rlm_eap": "eap.tmpl",
-	"rlm_rest": "rest.tmpl", "rlm_redis": "redis.tmpl",
+	"rlm_sql": tmplSQL, "rlm_ldap": tmplLDAP, "rlm_eap": tmplEAP,
+	"rlm_rest": tmplREST, "rlm_redis": tmplRedis,
 }
 
 func renderModules(modules []ModuleConfig) (ConfigFiles, error) {

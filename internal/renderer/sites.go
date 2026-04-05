@@ -63,7 +63,7 @@ func renderSites(policies []PolicySpec, coaEnabled ...bool) (string, error) {
 	}
 
 	var buf bytes.Buffer
-	if err := tmpl.ExecuteTemplate(&buf, "default.tmpl", ctx); err != nil {
+	if err := tmpl.ExecuteTemplate(&buf, tmplDefault, ctx); err != nil {
 		return "", err
 	}
 	return buf.String(), nil
