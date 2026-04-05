@@ -1,0 +1,20 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: raw-mac-auth
+  namespace: default
+spec:
+  clusterRef: raw-radius
+  stage: authorize
+  priority: 5
+  rawConfig: |
+    if (&Calling-Station-Id && !&User-Password) {
+        update control {
+            Auth-Type := Accept
+        }
+        update reply {
+            Tunnel-Type := VLAN
+            Tunnel-Medium-Type := IEEE-802
+            Tunnel-Private-Group-Id := "100"
+        }
+    }

@@ -1,0 +1,25 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: ldap-authorize
+  namespace: default
+spec:
+  clusterRef: ldap-radius
+  stage: authorize
+  priority: 10
+  actions:
+    - type: call
+      module: ldap
+---
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: ldap-authenticate
+  namespace: default
+spec:
+  clusterRef: ldap-radius
+  stage: authenticate
+  priority: 10
+  actions:
+    - type: call
+      module: ldap

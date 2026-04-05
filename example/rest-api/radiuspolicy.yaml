@@ -1,0 +1,25 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: rest-authorize
+  namespace: default
+spec:
+  clusterRef: rest-radius
+  stage: authorize
+  priority: 10
+  actions:
+    - type: call
+      module: rest
+---
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: rest-authenticate
+  namespace: default
+spec:
+  clusterRef: rest-radius
+  stage: authenticate
+  priority: 10
+  actions:
+    - type: call
+      module: rest

@@ -1,0 +1,38 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: split-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  modules:
+    - name: sql
+      type: rlm_sql
+      enabled: true
+      sql:
+        dialect: postgresql
+        server: db.internal
+        port: 5432
+        database: radius
+        login: radius
+        passwordRef:
+          name: db-credentials
+          key: password
+  services:
+    auth:
+      type: LoadBalancer
+      replicas: 3
+      autoscaling:
+        enabled: true
+        minReplicas: 3
+        maxReplicas: 20
+        targetCPUUtilizationPercentage: 60
+    accounting:
+      type: ClusterIP
+      replicas: 2
+    coa:
+      type: ClusterIP
+      replicas: 1
+  coa:
+    enabled: true
+    port: 3799

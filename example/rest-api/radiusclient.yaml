@@ -1,0 +1,12 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusClient
+metadata:
+  name: wireless-aps
+  namespace: default
+spec:
+  clusterRef: rest-radius
+  ip: 10.10.0.0/16
+  secretRef:
+    name: ap-secret
+    key: shared-secret
+  nasType: other

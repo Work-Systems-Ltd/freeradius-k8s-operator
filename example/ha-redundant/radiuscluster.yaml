@@ -1,0 +1,40 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: ha-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  replicas: 3
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+  pdb:
+    minAvailable: 2
+  modules:
+    - name: sql-primary
+      type: rlm_sql
+      enabled: true
+      sql:
+        dialect: postgresql
+        server: db-primary.internal
+        port: 5432
+        database: radius
+        login: radius
+        passwordRef:
+          name: db-primary-credentials
+          key: password
+    - name: sql-replica
+      type: rlm_sql
+      enabled: true
+      sql:
+        dialect: postgresql
+        server: db-replica.internal
+        port: 5432
+        database: radius
+        login: radius_ro
+        passwordRef:
+          name: db-replica-credentials
+          key: password

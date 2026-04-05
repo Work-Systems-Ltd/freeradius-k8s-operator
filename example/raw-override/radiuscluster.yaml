@@ -1,0 +1,18 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: raw-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  replicas: 1
+  modules:
+    - name: custom-python
+      type: rlm_python
+      enabled: true
+      rawConfig: |
+        python custom-python {
+            module = /etc/freeradius/scripts/auth.py
+            func_authorize = authorize
+            func_authenticate = authenticate
+        }

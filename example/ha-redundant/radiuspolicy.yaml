@@ -1,0 +1,29 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: redundant-sql-authorize
+  namespace: default
+spec:
+  clusterRef: ha-radius
+  stage: authorize
+  priority: 10
+  actions:
+    - type: redundant
+      modules:
+        - sql-primary
+        - sql-replica
+---
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusPolicy
+metadata:
+  name: redundant-sql-accounting
+  namespace: default
+spec:
+  clusterRef: ha-radius
+  stage: accounting
+  priority: 10
+  actions:
+    - type: redundant
+      modules:
+        - sql-primary
+        - sql-replica

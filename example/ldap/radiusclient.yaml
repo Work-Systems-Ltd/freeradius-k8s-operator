@@ -1,0 +1,12 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusClient
+metadata:
+  name: office-switches
+  namespace: default
+spec:
+  clusterRef: ldap-radius
+  ip: 10.1.0.0/16
+  secretRef:
+    name: switch-secret
+    key: shared-secret
+  nasType: cisco

@@ -1,0 +1,30 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: rest-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  replicas: 2
+  modules:
+    - name: rest
+      type: rlm_rest
+      enabled: true
+      rest:
+        connectURI: "https://auth-api.internal/radius"
+        auth: http_auth
+        passwordRef:
+          name: rest-api-credentials
+          key: api-key
+        authorize:
+          uri: "/authorize"
+          method: POST
+        authenticate:
+          uri: "/authenticate"
+          method: POST
+        accounting:
+          uri: "/accounting"
+          method: POST
+        postAuth:
+          uri: "/post-auth"
+          method: POST

@@ -383,18 +383,27 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 	}
 
 	restrictedSC := &corev1.SecurityContext{
+		RunAsNonRoot:             &trueVal,
 		AllowPrivilegeEscalation: &falseVal,
 		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 	}
 
+	rootUser := int64(0)
 	stockCopyContainer := corev1.Container{
-		Name:    "stock-config",
-		Image:   cluster.Spec.Image,
-		Command: []string{"sh", "-c", `cp -rL /etc/freeradius/. /config-rendered/ 2>/dev/null; chmod 755 /config-rendered; true`},
+		Name:  "stock-config",
+		Image: cluster.Spec.Image,
+		Command: []string{"sh", "-c", `cp -rL /etc/freeradius/. /config-rendered/ 2>/dev/null
+chown -R 101:101 /config-rendered
+chmod -R go-w /config-rendered
+chmod 755 /config-rendered
+true`},
 		VolumeMounts: []corev1.VolumeMount{
 			{Name: "freeradius-config-rendered", MountPath: "/config-rendered"},
 		},
-		SecurityContext: restrictedSC,
+		SecurityContext: &corev1.SecurityContext{
+			RunAsUser:                &rootUser,
+			AllowPrivilegeEscalation: &falseVal,
+		},
 		Resources: corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
 			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
@@ -489,9 +498,8 @@ done`},
 
 	podSpec := corev1.PodSpec{
 		SecurityContext: &corev1.PodSecurityContext{
-			RunAsNonRoot: &trueVal,
-			RunAsUser:    &freerad,
-			RunAsGroup:   &freerad,
+			RunAsUser:  &freerad,
+			RunAsGroup: &freerad,
 		},
 		Affinity:                  affinity,
 		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,

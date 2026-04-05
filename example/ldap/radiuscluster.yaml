@@ -1,0 +1,20 @@
+apiVersion: radius.operator.io/v1alpha1
+kind: RadiusCluster
+metadata:
+  name: ldap-radius
+  namespace: default
+spec:
+  image: freeradius/freeradius-server:3.2.3
+  replicas: 2
+  modules:
+    - name: ldap
+      type: rlm_ldap
+      enabled: true
+      ldap:
+        server: ldap.internal
+        port: 636
+        baseDN: "dc=example,dc=com"
+        identity: "cn=radius,ou=services,dc=example,dc=com"
+        passwordRef:
+          name: ldap-bind-credentials
+          key: password
