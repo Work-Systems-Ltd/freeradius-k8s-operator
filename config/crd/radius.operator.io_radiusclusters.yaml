@@ -241,6 +241,15 @@ spec:
                                 type: string
                               key:
                                 type: string
+                      files:
+                        type: object
+                        properties:
+                          key:
+                            type: string
+                          authorize:
+                            type: string
+                          accounting:
+                            type: string
                 # ISP-scale features
                 pdb:
                   type: object
