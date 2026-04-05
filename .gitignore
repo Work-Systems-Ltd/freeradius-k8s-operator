@@ -10,8 +10,7 @@ fabfile.py
 gunicorn.py
 .kiro/
 invoke.yml
-nautobot.log
-nautobot.pid
+TODO.md
 .DS_Store
 .idea
 .context/

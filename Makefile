@@ -15,7 +15,7 @@ GOLANGCI_LINT         ?= $(GOPATH_BIN)/golangci-lint
 all: fmt lint test build
 
 generate:
-	controller-gen object:headerFile="hack/boilerplate.go.txt" paths="./..."
+	controller-gen object paths="./..."
 
 manifests:
 	controller-gen crd rbac:roleName=manager-role paths="./..." \

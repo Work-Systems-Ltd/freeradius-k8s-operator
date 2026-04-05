@@ -38,7 +38,7 @@ type RadiusClusterReconciler struct {
 	Scheme        *runtime.Scheme
 	Renderer      renderer.ConfigRenderer
 	Status        *status.StatusReporter
-	OperatorImage string // Image used for the render-clients init container
+	OperatorImage string
 }
 
 // +kubebuilder:rbac:groups=radius.operator.io,resources=radiusclusters,verbs=get;list;watch;create;update;patch;delete
@@ -395,6 +395,24 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 		Capabilities:             &corev1.Capabilities{Drop: []corev1.Capability{"ALL"}},
 	}
 
+	// First init container: copy stock FreeRADIUS config from the image into the
+	// shared emptyDir so that base files (dictionary, policy.d/, mods-config/, etc.)
+	// are present before the operator overlays its generated config.
+	stockCopyContainer := corev1.Container{
+		Name:    "stock-config",
+		Image:   cluster.Spec.Image,
+		Command: []string{"sh", "-c", `cp -a /etc/freeradius/. /config-rendered/`},
+		VolumeMounts: []corev1.VolumeMount{
+			{Name: "freeradius-config-rendered", MountPath: "/config-rendered"},
+		},
+		SecurityContext: restrictedSC,
+		Resources: corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("10m"), corev1.ResourceMemory: resource.MustParse("16Mi")},
+			Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("50m"), corev1.ResourceMemory: resource.MustParse("32Mi")},
+		},
+	}
+
+	// Second init container: overlay operator-generated config on top of the stock files.
 	initContainer := corev1.Container{
 		Name:  "config-init",
 		Image: "docker.io/library/busybox:1.36",
@@ -493,7 +511,7 @@ done`},
 		Affinity:                  affinity,
 		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,
 		ServiceAccountName:        cluster.Name + serviceAccountSuffix,
-		InitContainers:            []corev1.Container{initContainer, clientInitContainer},
+		InitContainers:            []corev1.Container{stockCopyContainer, initContainer, clientInitContainer},
 		Containers:                []corev1.Container{mainContainer},
 		Volumes:                   volumes,
 	}
