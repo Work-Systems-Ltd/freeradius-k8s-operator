@@ -9,7 +9,7 @@ import (
 )
 
 var ipCIDRPattern = regexp.MustCompile(
-	`^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:.]+)(\/\d{1,3})?)$`,
+	`^((\d{1,3}\.){3}\d{1,3}(/\d{1,2})?|[0-9a-fA-F:.]*:[0-9a-fA-F:.]*(/\d{1,3})?)$`,
 )
 
 func TestIPCIDRValidation(t *testing.T) {
@@ -58,7 +58,7 @@ func TestIPCIDRValidation(t *testing.T) {
 	})
 
 	t.Run("invalid strings do not match", func(t *testing.T) {
-		for _, s := range []string{"hello", "not-an-ip", "xyz.abc", "g1234", "just spaces"} {
+		for _, s := range []string{"hello", "not-an-ip", "xyz.abc", "g1234", "just spaces", "abcdef", "a", "FF"} {
 			if ipCIDRPattern.MatchString(s) {
 				t.Fatalf("expected %q to not match", s)
 			}

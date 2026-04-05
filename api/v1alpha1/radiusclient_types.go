@@ -4,7 +4,7 @@ import metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
 type RadiusClientSpec struct {
 	ClusterRef string `json:"clusterRef"`
-	// +kubebuilder:validation:Pattern=`^((\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?|([0-9a-fA-F:.]+)(\/\d{1,3})?)$`
+	// +kubebuilder:validation:Pattern=`^((\d{1,3}\.){3}\d{1,3}(/\d{1,2})?|[0-9a-fA-F:.]*:[0-9a-fA-F:.]*(/\d{1,3})?)$`
 	IP        string            `json:"ip"`
 	SecretRef SecretRef         `json:"secretRef"`
 	NASType   string            `json:"nasType,omitempty"`
