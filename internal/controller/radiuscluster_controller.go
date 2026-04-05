@@ -373,7 +373,7 @@ func (r *RadiusClusterReconciler) buildPodSpec(cluster *radiusv1alpha1.RadiusClu
 	}
 
 	for _, ref := range secretRefs {
-		mode := int32(0400)
+		mode := int32(0440)
 		volumes = append(volumes, corev1.Volume{
 			Name: "secret-" + ref.Name,
 			VolumeSource: corev1.VolumeSource{
@@ -522,6 +522,7 @@ done`},
 		SecurityContext: &corev1.PodSecurityContext{
 			RunAsUser:  &freerad,
 			RunAsGroup: &freerad,
+			FSGroup:    &freerad,
 		},
 		Affinity:                  affinity,
 		TopologySpreadConstraints: cluster.Spec.TopologySpreadConstraints,
