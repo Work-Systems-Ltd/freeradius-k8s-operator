@@ -14,6 +14,9 @@ run_dir = ${localstatedir}/run/${name}
 db_dir = ${raddbdir}
 libdir = /usr/lib/freeradius
 pidfile = ${run_dir}/${name}.pid
+modconfdir = ${confdir}/mods-config
+certdir = ${confdir}/certs
+cadir = ${confdir}/certs
 
 max_request_time = 30
 cleanup_delay = 5

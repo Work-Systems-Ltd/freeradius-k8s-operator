@@ -460,6 +460,96 @@ func TestPolicyInCorrectStage(t *testing.T) {
 	})
 }
 
+func TestModuleRawConfigOverride(t *testing.T) {
+	r := New()
+	rawContent := "linelog raw_logger {\n    filename = /var/log/radius.log\n}\n"
+	ctx := RenderContext{
+		Cluster: ClusterSpec{
+			Replicas: 1, Image: "freeradius:3.2.3",
+			Modules: []ModuleConfig{{
+				Name: "raw_logger", Type: "rlm_linelog", Enabled: true,
+				RawConfig: rawContent,
+			}},
+		},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	content, ok := files["mods-enabled/raw_logger"]
+	if !ok {
+		t.Fatal("missing mods-enabled/raw_logger")
+	}
+	if content != rawContent {
+		t.Fatalf("expected raw content, got %q", content)
+	}
+}
+
+func TestModuleRawConfigSkipsValidation(t *testing.T) {
+	r := New()
+	ctx := RenderContext{
+		Cluster: ClusterSpec{
+			Replicas: 1, Image: "freeradius:3.2.3",
+			Modules: []ModuleConfig{{
+				Name: "custom", Type: "unknown_type", Enabled: true,
+				RawConfig: "custom_module mymod {\n}\n",
+			}},
+		},
+	}
+	_, err := r.Render(ctx)
+	if err != nil {
+		t.Fatalf("raw config should skip validation, got: %v", err)
+	}
+}
+
+func TestClientRawConfigOverride(t *testing.T) {
+	r := New()
+	rawBlock := "client custom-nas {\n    ipaddr = 172.16.0.0/12\n    secret = mysecret\n    shortname = custom\n}"
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Clients: []ClientSpec{{
+			Name:      "custom-nas",
+			RawConfig: rawBlock,
+		}},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	clientsConf := files["clients.conf"]
+	if !strings.Contains(clientsConf, rawBlock) {
+		t.Fatal("raw client block not found in clients.conf")
+	}
+	if strings.Contains(clientsConf, "secret = ${file:") {
+		t.Fatal("templated client block should not appear for raw config client")
+	}
+}
+
+func TestPolicyRawConfigOverride(t *testing.T) {
+	r := New()
+	rawUnlang := "sql\nif (ok) {\n    update reply {\n        Reply-Message := \"Welcome\"\n    }\n}"
+	ctx := RenderContext{
+		Cluster: ClusterSpec{Replicas: 1, Image: "freeradius:3.2.3"},
+		Policies: []PolicySpec{{
+			Name:      "raw-policy",
+			Stage:     "authorize",
+			Priority:  50,
+			RawConfig: rawUnlang,
+		}},
+	}
+	files, err := r.Render(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sitesDefault := files["sites-enabled/default"]
+	if !strings.Contains(sitesDefault, rawUnlang) {
+		t.Fatal("raw policy unlang not found in sites-enabled/default")
+	}
+	if strings.Contains(sitesDefault, "if (true)") {
+		t.Fatal("templated policy block should not appear for raw config policy")
+	}
+}
+
 func normalizeWS(s string) string {
 	lines := strings.Split(s, "\n")
 	for i, l := range lines {
